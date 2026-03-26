@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react';
 import { ProductIdea, ProductContent } from '@/lib/openai';
 import { downloadPDF } from '@/lib/pdfGenerator';
-import { TEMPLATE_OPTIONS, TemplateId } from '@/lib/productTemplates';
+import { TEMPLATE_OPTIONS, TemplateId, renderTemplate } from '@/lib/productTemplates';
 
 type Step = 'input' | 'ideas' | 'template' | 'generating' | 'preview';
 
@@ -435,13 +435,13 @@ export default function Home() {
               </div>
               <div
                 ref={previewRef}
-                className="p-8 max-h-[500px] overflow-y-auto text-sm preview-pane"
-                style={{ fontFamily: "'PingFang SC', 'Microsoft YaHei', sans-serif", lineHeight: 1.8 }}
+                className="max-h-[500px] overflow-y-auto text-sm preview-pdf-content"
               >
-                <div
-                  dangerouslySetInnerHTML={{
-                    __html: renderPreview(product.content),
-                  }}
+                <iframe
+                  srcDoc={renderTemplate(selectedTemplate, product.title, product.content)}
+                  className="w-full border-0"
+                  style={{ height: '600px' }}
+                  title="PDF Preview"
                 />
               </div>
             </div>
