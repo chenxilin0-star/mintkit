@@ -261,7 +261,7 @@ export default function Home() {
               </div>
               <h2 className="text-xl font-bold text-gray-900 mb-2">Generating Your Product...</h2>
               <p className="text-gray-500">Creating a complete {selectedIdea?.type} for &quot;{selectedIdea?.title}&quot;</p>
-              <p className="text-sm text-gray-400 mt-2">Usually takes 20-40 seconds</p>
+              <p className="text-sm text-gray-400 mt-2">Usually takes 2-3 minutes</p>
             </div>
           </div>
         )}
