@@ -3,13 +3,25 @@
 import { useState, useRef } from 'react';
 import { ProductIdea, ProductContent } from '@/lib/openai';
 import { downloadPDF } from '@/lib/pdfGenerator';
+import { TEMPLATE_OPTIONS, TemplateId } from '@/lib/productTemplates';
 
-type Step = 'input' | 'ideas' | 'generating' | 'preview';
+type Step = 'input' | 'ideas' | 'template' | 'generating' | 'preview';
 
 const typeColors: Record<string, string> = {
   Planner: 'bg-emerald-100 text-emerald-700 border-emerald-200',
   Checklist: 'bg-blue-100 text-blue-700 border-blue-200',
   Guide: 'bg-violet-100 text-violet-700 border-violet-200',
+  Workbook: 'bg-amber-100 text-amber-700 border-amber-200',
+  Journal: 'bg-pink-100 text-pink-700 border-pink-200',
+  Tracker: 'bg-cyan-100 text-cyan-700 border-cyan-200',
+};
+
+const templatePreviews: Record<TemplateId, { bg: string; accent: string; label: string }> = {
+  modern: { bg: '#f0fdf4', accent: '#10B981', label: '现代简约' },
+  professional: { bg: '#eff6ff', accent: '#1E3A5F', label: '专业商务' },
+  fresh: { bg: '#fdf2f8', accent: '#F472B6', label: '清新活泼' },
+  minimal: { bg: '#ffffff', accent: '#374151', label: '极简白' },
+  magazine: { bg: '#fef2f2', accent: '#DC2626', label: '潮流杂志' },
 };
 
 export default function Home() {
@@ -17,6 +29,7 @@ export default function Home() {
   const [niche, setNiche] = useState('');
   const [ideas, setIdeas] = useState<ProductIdea[]>([]);
   const [selectedIdea, setSelectedIdea] = useState<ProductIdea | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<TemplateId>('modern');
   const [product, setProduct] = useState<ProductContent | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -45,8 +58,12 @@ export default function Home() {
     }
   }
 
-  async function handleSelectIdea(idea: ProductIdea) {
+  function handleSelectIdea(idea: ProductIdea) {
     setSelectedIdea(idea);
+    setStep('template');
+  }
+
+  async function handleConfirmTemplate() {
     setStep('generating');
     setLoading(true);
     setError('');
@@ -54,7 +71,7 @@ export default function Home() {
       const res = await fetch('/api/generate-product', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idea }),
+        body: JSON.stringify({ idea: selectedIdea }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -62,7 +79,7 @@ export default function Home() {
       setStep('preview');
     } catch (e: any) {
       setError(e.message || 'Failed to generate product');
-      setStep('ideas');
+      setStep('template');
     } finally {
       setLoading(false);
     }
@@ -73,7 +90,7 @@ export default function Home() {
     const element = previewRef.current;
     const html = element.innerHTML;
     const filename = product.title.replace(/[^a-z0-9]/gi, '_');
-    await downloadPDF(html, filename);
+    await downloadPDF(html, filename, selectedTemplate);
   }
 
   function handleCopyContent() {
@@ -83,11 +100,10 @@ export default function Home() {
   }
 
   function handleBack() {
-    if (step === 'ideas') {
-      setStep('input');
-      setIdeas([]);
-    } else if (step === 'preview') {
+    if (step === 'template') {
       setStep('ideas');
+    } else if (step === 'preview') {
+      setStep('template');
       setProduct(null);
     }
   }
@@ -98,7 +114,23 @@ export default function Home() {
     setIdeas([]);
     setSelectedIdea(null);
     setProduct(null);
+    setSelectedTemplate('modern');
     setError('');
+  }
+
+  function renderPreview(content: string) {
+    return content
+      .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+      .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+      .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      .replace(/^- \[ \] (.+)$/gm, '<div class="checkbox"><span class="box"></span>$1</div>')
+      .replace(/^- \[x\] (.+)$/gm, '<div class="checkbox checked"><span class="box checked-box">✓</span>$1</div>')
+      .replace(/^- (.+)$/gm, '<li>$1</li>')
+      .replace(/^\d+\. (.+)$/gm, '<li class="numbered">$1</li>')
+      .replace(/\n\n/g, '<p style="margin:10px 0;"></p>')
+      .replace(/\n/g, '<br>');
   }
 
   return (
@@ -120,7 +152,7 @@ export default function Home() {
               onClick={step === 'preview' ? handleBack : handleReset}
               className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
             >
-              {step === 'preview' ? '← Back' : '← New'} 
+              {step === 'preview' ? '← Back' : '← New'}
             </button>
           )}
         </div>
@@ -249,6 +281,110 @@ export default function Home() {
           </div>
         )}
 
+        {/* Step 2.5: Template Selection */}
+        {step === 'template' && selectedIdea && (
+          <div>
+            <div className="mb-2">
+              <h2 className="text-xl font-bold text-gray-900">
+                Choose a Template
+              </h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Pick a style for your <span className="text-emerald-600">{selectedIdea.type}</span>: &quot;{selectedIdea.title}&quot;
+              </p>
+            </div>
+
+            {/* Selected idea summary */}
+            <div className="bg-emerald-50 rounded-xl border border-emerald-100 p-4 mb-6 flex items-center justify-between">
+              <div>
+                <span className={`text-xs font-medium px-2 py-1 rounded-full border ${typeColors[selectedIdea.type] || 'bg-gray-100 text-gray-600'}`}>
+                  {selectedIdea.type}
+                </span>
+                <span className="ml-3 font-medium text-gray-800 text-sm">{selectedIdea.title}</span>
+              </div>
+              <button onClick={() => setStep('ideas')} className="text-xs text-gray-400 hover:text-gray-600">
+                Change
+              </button>
+            </div>
+
+            {/* Template grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+              {TEMPLATE_OPTIONS.map((tpl) => {
+                const preview = templatePreviews[tpl.id];
+                const isSelected = selectedTemplate === tpl.id;
+                return (
+                  <button
+                    key={tpl.id}
+                    onClick={() => setSelectedTemplate(tpl.id)}
+                    className={`relative rounded-2xl border-2 p-4 text-left transition-all hover:shadow-md ${
+                      isSelected
+                        ? 'border-emerald-500 shadow-md ring-2 ring-emerald-100'
+                        : 'border-gray-100 bg-white hover:border-gray-200'
+                    }`}
+                  >
+                    {isSelected && (
+                      <div className="absolute -top-2 -right-2 w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center shadow">
+                        <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    )}
+
+                    {/* Mini preview card */}
+                    <div
+                      className="rounded-xl p-3 mb-3 relative overflow-hidden"
+                      style={{ background: preview.bg }}
+                    >
+                      <div className="absolute top-1.5 right-2 text-xs font-bold opacity-30" style={{ color: preview.accent }}>
+                        {tpl.emoji}
+                      </div>
+                      <div
+                        className="w-8 rounded mb-2"
+                        style={{ height: 8, background: preview.accent }}
+                      />
+                      <div className="bg-white/70 rounded mb-1.5" style={{ height: 5, width: '70%' }} />
+                      <div className="bg-white/50 rounded" style={{ height: 5, width: '90%' }} />
+                      <div className="mt-2 flex gap-1.5">
+                        <div className="w-4 h-4 rounded" style={{ border: `1.5px solid ${preview.accent}` }} />
+                        <div className="bg-white/60 rounded" style={{ height: 5, width: '60%' }} />
+                      </div>
+                    </div>
+
+                    <div className="font-semibold text-gray-800 text-sm">{tpl.name}</div>
+                    <div className="text-xs text-gray-500 mt-0.5">{tpl.description}</div>
+                    <div className="text-xs text-gray-400 mt-1">{tpl.bestFor}</div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Confirm button */}
+            <div className="flex gap-3">
+              <button
+                onClick={handleConfirmTemplate}
+                disabled={loading}
+                className="flex-1 px-6 py-3.5 bg-emerald-600 text-white font-medium rounded-xl hover:bg-emerald-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+              >
+                {loading ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                    Generating...
+                  </>
+                ) : (
+                  <>Generate Product →</>
+                )}
+              </button>
+              <button
+                onClick={() => setStep('ideas')}
+                className="px-6 py-3.5 bg-white border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors"
+              >
+                Back
+              </button>
+            </div>
+
+            {error && <p className="mt-3 text-sm text-red-500">{error}</p>}
+          </div>
+        )}
+
         {/* Step 3: Generating */}
         {step === 'generating' && (
           <div className="text-center py-20">
@@ -261,7 +397,10 @@ export default function Home() {
               </div>
               <h2 className="text-xl font-bold text-gray-900 mb-2">Generating Your Product...</h2>
               <p className="text-gray-500">Creating a complete {selectedIdea?.type} for &quot;{selectedIdea?.title}&quot;</p>
-              <p className="text-sm text-gray-400 mt-2">Usually takes 2-3 minutes</p>
+              <p className="text-sm text-gray-400 mt-2">
+                Template: <span className="font-medium">{TEMPLATE_OPTIONS.find(t => t.id === selectedTemplate)?.name}</span>
+              </p>
+              <p className="text-sm text-gray-400">Usually takes 2-3 minutes</p>
             </div>
           </div>
         )}
@@ -270,9 +409,12 @@ export default function Home() {
         {step === 'preview' && product && (
           <div>
             <div className="mb-6">
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <span className={`text-xs font-medium px-2 py-1 rounded-full border ${typeColors[product.type]}`}>
                   {product.type}
+                </span>
+                <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
+                  {TEMPLATE_OPTIONS.find(t => t.id === selectedTemplate)?.emoji} {TEMPLATE_OPTIONS.find(t => t.id === selectedTemplate)?.name}
                 </span>
               </div>
               <h2 className="text-xl font-bold text-gray-900">{product.title}</h2>
@@ -280,33 +422,27 @@ export default function Home() {
 
             {/* Preview */}
             <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden mb-6">
-              <div className="bg-gray-50 border-b border-gray-200 px-4 py-2 flex items-center gap-2">
-                <div className="flex gap-1.5">
-                  <div className="w-3 h-3 rounded-full bg-red-400"></div>
-                  <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
-                  <div className="w-3 h-3 rounded-full bg-green-400"></div>
+              <div className="bg-gray-50 border-b border-gray-200 px-4 py-2 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-1.5">
+                    <div className="w-3 h-3 rounded-full bg-red-400"></div>
+                    <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
+                    <div className="w-3 h-3 rounded-full bg-green-400"></div>
+                  </div>
+                  <span className="text-xs text-gray-400 ml-2">PDF Preview</span>
                 </div>
-                <span className="text-xs text-gray-400 ml-2">Preview</span>
+                <span className="text-xs text-gray-400">A4 Portrait</span>
               </div>
-              <div 
+              <div
                 ref={previewRef}
-                className="p-8 max-h-[500px] overflow-y-auto text-sm"
-                style={{ fontFamily: 'Georgia, serif', lineHeight: 1.7 }}
+                className="p-8 max-h-[500px] overflow-y-auto text-sm preview-pane"
+                style={{ fontFamily: "'PingFang SC', 'Microsoft YaHei', sans-serif", lineHeight: 1.8 }}
               >
-                <div className="max-w-none" dangerouslySetInnerHTML={{ 
-                  __html: product.content
-                    .replace(/^# (.+)$/gm, '<h1 style="font-size:20pt;font-weight:bold;color:#10B981;margin:25px 0 12px 0;">$1</h1>')
-                    .replace(/^## (.+)$/gm, '<h2 style="font-size:14pt;font-weight:600;color:#10B981;margin:20px 0 10px 0;padding-bottom:5px;border-bottom:1px solid #eee;">$1</h2>')
-                    .replace(/^### (.+)$/gm, '<h3 style="font-size:12pt;font-weight:600;color:#059669;margin:15px 0 8px 0;">$1</h3>')
-                    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-                    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-                    .replace(/^- \[ \] (.+)$/gm, '<div style="display:flex;align-items:flex-start;margin:8px 0;"><span style="display:inline-block;width:16px;height:16px;border:2px solid #333;border-radius:3px;margin-right:10px;margin-top:3px;flex-shrink:0;"></span>$1</div>')
-                    .replace(/^- \[x\] (.+)$/gm, '<div style="display:flex;align-items:flex-start;margin:8px 0;"><span style="display:inline-block;width:16px;height:16px;background:#10B981;border:2px solid #10B981;border-radius:3px;margin-right:10px;margin-top:3px;flex-shrink:0;color:white;font-size:10px;line-height:14px;text-align:center;">✓</span>$1</div>')
-                    .replace(/^- (.+)$/gm, '<li style="margin:5px 0 5px 20px;">$1</li>')
-                    .replace(/^\d+\. (.+)$/gm, '<li style="margin:5px 0 5px 20px;list-style-type:decimal;">$1</li>')
-                    .replace(/\n\n/g, '<p style="margin:10px 0;"></p>')
-                    .replace(/\n/g, '<br>')
-                }} />
+                <div
+                  dangerouslySetInnerHTML={{
+                    __html: renderPreview(product.content),
+                  }}
+                />
               </div>
             </div>
 
@@ -324,12 +460,15 @@ export default function Home() {
               >
                 📋 Copy Content
               </button>
+            </div>
+
+            {/* Template change */}
+            <div className="flex gap-3 mb-8">
               <button
-                onClick={() => selectedIdea && handleSelectIdea(selectedIdea)}
-                disabled={loading}
-                className="px-6 py-3 bg-white border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors"
+                onClick={() => setStep('template')}
+                className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
               >
-                🔄 Regenerate
+                🔄 Change Template
               </button>
             </div>
 
