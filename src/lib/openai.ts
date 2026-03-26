@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
+  baseURL: 'https://open.bigmodel.cn/api/paas/v4/',
 });
 
 export interface ProductIdea {
@@ -31,7 +32,7 @@ Output ONLY valid JSON array, no markdown, no explanation. Example:
 
 export async function generateIdeas(niche: string): Promise<ProductIdea[]> {
   const completion = await client.chat.completions.create({
-    model: 'gpt-4o',
+    model: 'glm-5',
     messages: [
       { role: 'system', content: ideaSystemPrompt },
       { role: 'user', content: `Generate 5 digital product ideas for niche: ${niche}` },
@@ -114,7 +115,7 @@ Recommended page count: ${idea.pageCount} pages
 Output format: Markdown only, starting with # [Title]`;
 
   const completion = await client.chat.completions.create({
-    model: 'gpt-4o',
+    model: 'glm-5',
     messages: [
       { role: 'system', content: contentSystemPrompt },
       { role: 'user', content: userPrompt },

@@ -66,7 +66,7 @@ const baseCSS = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Inter', -apple-system, sans-serif; font-size: 11pt; line-height: 1.6; color: #333; }
-  .document { max-width: 800px; margin: 0 auto; padding: 40px; }
+  .document { max-width: 800px; margin: 0 auto; padding: 40px 40px 40px 50px; }
   .header { text-align: center; margin-bottom: 40px; padding-bottom: 20px; border-bottom: 2px solid; }
   .title { font-size: 28pt; font-weight: 700; margin-bottom: 8px; }
   .subtitle { font-size: 10pt; color: #888; }
