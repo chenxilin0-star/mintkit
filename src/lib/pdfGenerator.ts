@@ -33,7 +33,8 @@ export async function downloadPDF(
       .set({
         margin: [15, 15, 15, 15], // top, right, bottom, left in mm
         filename: `${filename}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
+        // Use PNG for better quality (default)
+        image: { type: 'png' },
         html2canvas: {
           scale: 2,
           useCORS: true,
