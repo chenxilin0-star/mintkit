@@ -1,4 +1,4 @@
-// pdfGenerator.ts - PDF download using html2pdf.js
+// pdfGenerator.ts - PDF download using html2pdf.js (iframe rendering for fonts + native pagebreaks)
 // Templates are defined in productTemplates.ts
 
 export async function downloadPDF(
@@ -8,49 +8,55 @@ export async function downloadPDF(
 ) {
   const styledHTML = renderTemplate(templateId, filename.replace(/_/g, ' '), html);
 
-  // NOTE: Pass the HTML *string* directly to html2pdf.js.
-  //
-  // Root cause of preview/PDF mismatch when using `.from(iframeDoc.body)`:
-  // html2canvas clones the live DOM tree from the iframe body. This creates
-  // two problems:
-  //   1. Custom fonts (PingFang SC, etc.) may not have resolved yet even after
-  //      the iframe onload fires — html2canvas captures a mid-render state.
-  //   2. The cloned element loses some CSS context that html2canvas uses for
-  //      layout / paint resolution, causing color and spacing differences vs.
-  //      the srcDoc preview which renders in a fresh iframe each time.
-  //
-  // By passing the complete HTML string, html2pdf.js -> html2canvas receives
-  // the raw markup and handles rendering in a single self-contained pass,
-  // identical to how the srcDoc iframe renders in the browser.
+  // Create a hidden iframe to render the full HTML document (proper font/CSS rendering)
+  const iframe = document.createElement('iframe');
+  iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;height:1123px;border:none;visibility:hidden;';
+  document.body.appendChild(iframe);
 
-  const html2pdf = (await import('html2pdf.js')).default;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (html2pdf() as any)
-    .set({
-      margin: [15, 15, 15, 15], // top, right, bottom, left in mm
-      filename: `${filename}.pdf`,
-      image: { type: 'png' },
-      html2canvas: {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        scrollX: 0,
-        scrollY: 0,
-        // Ensure foreignObject elements (if any) are handled
-        removeContainer: true,
-      },
-      jsPDF: {
-        unit: 'mm',
-        format: 'a4',
-        orientation: 'portrait',
-      },
-      pagebreak: {
-        mode: ['avoid-all', 'css', 'legacy'],
-      },
-    })
-    .from(styledHTML)
-    .save();
+  const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+  if (!iframeDoc) return;
+
+  iframeDoc.open();
+  iframeDoc.write(styledHTML);
+  iframeDoc.close();
+
+  // Wait for content + fonts to fully render
+  await new Promise<void>((resolve) => {
+    iframe.onload = () => resolve();
+    setTimeout(resolve, 2500); // Fallback
+  });
+
+  try {
+    const html2pdf = (await import('html2pdf.js')).default;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (html2pdf() as any)
+      .set({
+        margin: [15, 15, 15, 15], // top, right, bottom, left in mm
+        filename: `${filename}.pdf`,
+        // Use PNG for better quality (default)
+        image: { type: 'png' },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          logging: false,
+          scrollX: 0,
+          scrollY: 0,
+        },
+        jsPDF: {
+          unit: 'mm',
+          format: 'a4',
+          orientation: 'portrait',
+        },
+        pagebreak: {
+          mode: ['avoid-all', 'css', 'legacy'],
+        },
+      })
+      .from(iframeDoc.body)
+      .save();
+  } finally {
+    document.body.removeChild(iframe);
+  }
 }
 
 // Legacy export for backward compatibility
