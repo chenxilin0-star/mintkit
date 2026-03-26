@@ -34,11 +34,14 @@ export async function downloadPDF(html: string, filename: string) {
   li { margin-bottom: 7px; }
   strong { font-weight: bold; }
   em { font-style: italic; }
-  @page { size: A4; margin: 15mm; }
+  @page { size: A4; margin: 20mm; }
+  .pdf-container { padding: 50px 60px; max-width: 800px; margin: 0 auto; }
 </style>
 </head>
 <body>
+<div class="pdf-container">
 ${html}
+</div>
 </body>
 </html>`;
 
