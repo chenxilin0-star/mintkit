@@ -1,5 +1,3 @@
-'use client';
-
 import { TemplateId, renderTemplate } from './productTemplates';
 
 let html2pdfInstance: any = null;
@@ -24,9 +22,9 @@ export async function downloadPDF(
   const styledHTML = renderTemplate(templateId, filename.replace(/_/g, ' '), html);
 
   html2pdf().set({
-    margin: 0,
+    margin: [20, 20, 20, 25], // top, right, bottom, left - 25mm left for comfortable reading
     filename: `${filename}.pdf`,
-    html2canvas: { scale: 2, useCORS: true, width: 800 },
+    html2canvas: { scale: 2, useCORS: true },
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
   }).from(styledHTML).save();
 }

@@ -86,11 +86,11 @@ export default function Home() {
   }
 
   async function handleDownloadPDF() {
-    if (!product || !previewRef.current) return;
-    const element = previewRef.current;
-    const html = element.innerHTML;
+    if (!product) return;
+    // Pass raw markdown content (product.content), NOT the pre-rendered innerHTML.
+    // renderTemplate() / mdToHtml() handles markdown→HTML conversion.
     const filename = product.title.replace(/[^a-z0-9]/gi, '_');
-    await downloadPDF(html, filename, selectedTemplate);
+    await downloadPDF(product.content, filename, selectedTemplate);
   }
 
   function handleCopyContent() {
