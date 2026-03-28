@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { ProductIdea, ProductContent } from '@/lib/openai';
 import { downloadPDF } from '@/lib/pdfGenerator';
 import { TEMPLATE_OPTIONS, TemplateId, renderTemplate } from '@/lib/productTemplates';
+import { addUserProduct } from '@/lib/userProducts';
 
 type Step = 'input' | 'ideas' | 'template' | 'generating' | 'preview';
 
@@ -36,7 +38,19 @@ export default function Home() {
   const [error, setError] = useState('');
   const [generationsLeft, setGenerationsLeft] = useState(3);
   const { data: session, status } = useSession();
+  const router = useRouter();
   const previewRef = useRef<HTMLDivElement>(null);
+
+  // Check sessionStorage for regenerate niche pre-fill
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const regenerateNiche = sessionStorage.getItem('mintkit_regenerate_niche');
+      if (regenerateNiche) {
+        setNiche(regenerateNiche);
+        sessionStorage.removeItem('mintkit_regenerate_niche');
+      }
+    }
+  }, []);
 
   async function handleGenerateIdeas() {
     if (!niche.trim()) return;
@@ -78,6 +92,13 @@ export default function Home() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setProduct(data.product);
+      // Save to localStorage for dashboard history
+      addUserProduct({
+        niche: niche,
+        productTitle: data.product.title,
+        productType: data.product.type,
+        templateId: selectedTemplate,
+      });
       setStep('preview');
     } catch (e: any) {
       setError(e.message || 'Failed to generate product');
@@ -176,7 +197,9 @@ export default function Home() {
                 <img
                   src={session.user?.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(session.user?.name || 'U')}&background=10B981&color=fff`}
                   alt={session.user?.name || 'User'}
-                  className="w-8 h-8 rounded-full border border-gray-200"
+                  className="w-8 h-8 rounded-full border border-gray-200 cursor-pointer"
+                  onClick={() => router.push('/dashboard')}
+                  title="Dashboard"
                 />
                 <button
                   onClick={() => signOut()}
