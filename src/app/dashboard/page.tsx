@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import Header from '@/components/Header';
 import DashboardCard from '@/components/DashboardCard';
 import {
   getUserProducts,
@@ -11,6 +12,8 @@ import {
   getRecentProducts,
   UserProduct,
 } from '@/lib/userProducts';
+import { Plan, getPlanColor, getPlanLabel, buildUserPlanInfo } from '@/lib/subscription';
+import UpgradeModal from '@/components/UpgradeModal';
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
@@ -18,6 +21,8 @@ export default function DashboardPage() {
   const [stats, setStats] = useState({ todayCount: 0, monthCount: 0, totalCount: 0 });
   const [recentProducts, setRecentProducts] = useState<UserProduct[]>([]);
   const [mounted, setMounted] = useState(false);
+  const [userPlan, setUserPlan] = useState<Plan>('free');
+  const [showUpgrade, setShowUpgrade] = useState(false);
 
   // Redirect to home if not logged in (after mount)
   useEffect(() => {
@@ -35,6 +40,16 @@ export default function DashboardPage() {
     if (status === 'authenticated') {
       setStats(getUsageStats());
       setRecentProducts(getRecentProducts(10));
+
+      // Fetch plan info from API
+      fetch('/api/user/plan')
+        .then((r) => r.json())
+        .then((data) => {
+          if (data && !data.error) {
+            setUserPlan(data.plan || 'free');
+          }
+        })
+        .catch(() => {});
     }
   }, [status]);
 
@@ -45,7 +60,6 @@ export default function DashboardPage() {
   }
 
   function handleRegenerate(product: UserProduct) {
-    // Store the niche in sessionStorage for pre-filling on home page
     if (typeof window !== 'undefined') {
       sessionStorage.setItem('mintkit_regenerate_niche', product.niche);
     }
@@ -72,35 +86,11 @@ export default function DashboardPage() {
   }
 
   const user = session?.user;
+  const planInfo = buildUserPlanInfo(userPlan, stats.todayCount, stats.monthCount);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-blue-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div
-              className="w-9 h-9 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-sm cursor-pointer"
-              onClick={() => router.push('/')}
-            >
-              <span className="text-white text-lg font-bold">M</span>
-            </div>
-            <div>
-              <h1 className="text-lg font-bold text-gray-900">MintKit</h1>
-              <p className="text-xs text-gray-500">Dashboard</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => router.push('/')}
-              className="text-sm text-gray-500 hover:text-emerald-600 transition-colors min-h-[36px] px-3 flex items-center"
-            >
-              ← New Product
-            </button>
-          </div>
-        </div>
-      </header>
+      <Header />
 
       <main className="max-w-3xl mx-auto px-6 py-10">
         {/* User Info Card */}
@@ -117,10 +107,28 @@ export default function DashboardPage() {
             <div className="flex-1 min-w-0">
               <h2 className="text-xl font-bold text-gray-900 truncate">{user?.name}</h2>
               <p className="text-sm text-gray-500 truncate">{user?.email}</p>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="text-xs bg-emerald-50 text-emerald-600 border border-emerald-100 px-2 py-0.5 rounded-full">
-                  Google OAuth
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <span className={`text-xs font-medium px-2.5 py-1 rounded-full border ${getPlanColor(userPlan)}`}>
+                  {getPlanLabel(userPlan)}
                 </span>
+                {userPlan === 'premium' && (
+                  <span className="text-xs bg-amber-50 text-amber-600 border border-amber-200 px-2 py-0.5 rounded-full">
+                    ⭐ Unlimited
+                  </span>
+                )}
+                {userPlan === 'basic' && (
+                  <span className="text-xs bg-blue-50 text-blue-600 border border-blue-200 px-2 py-0.5 rounded-full">
+                    30/month
+                  </span>
+                )}
+                {userPlan === 'free' && (
+                  <button
+                    onClick={() => setShowUpgrade(true)}
+                    className="text-xs text-emerald-600 hover:text-emerald-700 font-medium underline"
+                  >
+                    Upgrade →
+                  </button>
+                )}
               </div>
             </div>
             <button
@@ -137,7 +145,9 @@ export default function DashboardPage() {
           <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm text-center">
             <div className="text-3xl mb-1">📅</div>
             <div className="text-2xl font-bold text-gray-900">{stats.todayCount}</div>
-            <div className="text-sm text-gray-500">Generated today</div>
+            <div className="text-sm text-gray-500">
+              {userPlan === 'free' ? '/1 today' : userPlan === 'basic' ? '/30 this month' : '∞ today'}
+            </div>
           </div>
           <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm text-center">
             <div className="text-3xl mb-1">📆</div>
@@ -150,6 +160,22 @@ export default function DashboardPage() {
             <div className="text-sm text-gray-500">Total generations</div>
           </div>
         </div>
+
+        {/* Upgrade nudge for free users with low usage */}
+        {userPlan === 'free' && stats.totalCount >= 3 && (
+          <div className="mb-6 p-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-2xl border border-amber-200 text-center">
+            <p className="text-amber-800 font-medium mb-1">🚀 You&apos;ve used MintKit {stats.totalCount} times!</p>
+            <p className="text-sm text-amber-700 mb-3">
+              Upgrade to Basic to download your PDFs and copy content — start selling today.
+            </p>
+            <button
+              onClick={() => router.push('/pricing')}
+              className="px-5 py-2 bg-amber-500 text-white font-semibold rounded-lg hover:bg-amber-600 transition-colors text-sm"
+            >
+              View Plans →
+            </button>
+          </div>
+        )}
 
         {/* Generation History */}
         <div>
@@ -215,10 +241,20 @@ export default function DashboardPage() {
         </div>
       </main>
 
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        isOpen={showUpgrade}
+        onClose={() => setShowUpgrade(false)}
+        currentPlan={userPlan}
+        reason="manual"
+        todayCount={stats.todayCount}
+        monthlyCount={stats.monthCount}
+      />
+
       {/* Footer */}
       <footer className="border-t border-gray-100 mt-16">
         <div className="max-w-3xl mx-auto px-6 py-6 text-center text-sm text-gray-400">
-          Built with MintKit · Your digital product dashboard
+          Built with MintKit · <a href="/pricing" className="hover:text-emerald-600">Pricing</a> · <a href="/faq" className="hover:text-emerald-600">FAQ</a>
         </div>
       </footer>
     </div>

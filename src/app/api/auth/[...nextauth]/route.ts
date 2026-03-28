@@ -19,7 +19,7 @@ import GoogleProvider from "next-auth/providers/google"
  *    - NEXTAUTH_SECRET=<generated value>
  */
 
-const handler = NextAuth({
+export const authOptions = {
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -30,19 +30,21 @@ const handler = NextAuth({
     signIn: "/", // Use the homepage as the sign-in page
   },
   callbacks: {
-    async session({ session, token }) {
+    async session({ session, token }: { session: any; token: any }) {
       if (session?.user && token?.sub) {
-        session.user.id = token.sub
+        session.user.id = token.sub;
       }
-      return session
+      return session;
     },
-    async jwt({ token, account }) {
+    async jwt({ token, account }: { token: any; account: any }) {
       if (account) {
-        token.accessToken = account.access_token
+        token.accessToken = account.access_token;
       }
-      return token
+      return token;
     },
   },
-})
+};
 
-export { handler as GET, handler as POST }
+const handler = NextAuth(authOptions);
+
+export { handler as GET, handler as POST };

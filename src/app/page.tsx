@@ -1,12 +1,15 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { useSession, signIn, signOut } from 'next-auth/react';
+import { useSession, signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { ProductIdea, ProductContent } from '@/lib/openai';
 import { downloadPDF } from '@/lib/pdfGenerator';
 import { TEMPLATE_OPTIONS, TemplateId, renderTemplate } from '@/lib/productTemplates';
 import { addUserProduct } from '@/lib/userProducts';
+import UpgradeModal from '@/components/UpgradeModal';
+import Header from '@/components/Header';
+import { Plan, buildUserPlanInfo, canDownload, canCopy } from '@/lib/subscription';
 
 type Step = 'input' | 'ideas' | 'template' | 'generating' | 'preview';
 
@@ -36,10 +39,36 @@ export default function Home() {
   const [product, setProduct] = useState<ProductContent | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [generationsLeft, setGenerationsLeft] = useState(3);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [upgradeReason, setUpgradeReason] = useState<'download' | 'copy' | 'limit' | 'manual'>('manual');
+
+  // Plan state
+  const [userPlan, setUserPlan] = useState<Plan>('free');
+  const [todayCount, setTodayCount] = useState(0);
+  const [monthlyCount, setMonthlyCount] = useState(0);
+
   const { data: session, status } = useSession();
   const router = useRouter();
   const previewRef = useRef<HTMLDivElement>(null);
+
+  // Fetch user plan info
+  useEffect(() => {
+    if (status === 'authenticated') {
+      fetch('/api/user/plan')
+        .then((r) => r.json())
+        .then((data) => {
+          if (data && !data.error) {
+            setUserPlan(data.plan || 'free');
+            setTodayCount(data.todayCount || 0);
+            setMonthlyCount(data.monthlyCount || 0);
+          }
+        })
+        .catch(() => {});
+    } else if (status === 'unauthenticated') {
+      // Reset to free for non-logged-in users
+      setUserPlan('free');
+    }
+  }, [status]);
 
   // Check sessionStorage for regenerate niche pre-fill
   useEffect(() => {
@@ -52,8 +81,28 @@ export default function Home() {
     }
   }, []);
 
+  const planInfo = buildUserPlanInfo(userPlan, todayCount, monthlyCount);
+
+  // Check if user is over limit
+  function checkGenerationLimit(): boolean {
+    if (planInfo.isOverDailyLimit) {
+      setUpgradeReason('limit');
+      setShowUpgradeModal(true);
+      return true;
+    }
+    return false;
+  }
+
   async function handleGenerateIdeas() {
     if (!niche.trim()) return;
+
+    if (status === 'unauthenticated') {
+      signIn('google');
+      return;
+    }
+
+    if (checkGenerationLimit()) return;
+
     setLoading(true);
     setError('');
     try {
@@ -66,7 +115,7 @@ export default function Home() {
       if (!res.ok) throw new Error(data.error);
       setIdeas(data.ideas);
       setStep('ideas');
-      setGenerationsLeft((g) => g - 1);
+      setTodayCount((c) => c + 1);
     } catch (e: any) {
       setError(e.message || 'Failed to generate ideas');
     } finally {
@@ -80,6 +129,11 @@ export default function Home() {
   }
 
   async function handleConfirmTemplate() {
+    if (checkGenerationLimit()) {
+      setStep('ideas');
+      return;
+    }
+
     setStep('generating');
     setLoading(true);
     setError('');
@@ -92,6 +146,21 @@ export default function Home() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setProduct(data.product);
+
+      // Record generation in D1
+      try {
+        await fetch('/api/generations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            niche,
+            productTitle: data.product.title,
+            productType: data.product.type?.toLowerCase() || 'planner',
+            templateId: selectedTemplate,
+          }),
+        });
+      } catch {}
+
       // Save to localStorage for dashboard history
       addUserProduct({
         niche: niche,
@@ -99,7 +168,9 @@ export default function Home() {
         productType: data.product.type,
         templateId: selectedTemplate,
       });
+
       setStep('preview');
+      setTodayCount((c) => c + 1);
     } catch (e: any) {
       setError(e.message || 'Failed to generate product');
       setStep('template');
@@ -108,15 +179,23 @@ export default function Home() {
     }
   }
 
-  async function handleDownloadPDF() {
+  function handleDownloadPDF() {
+    if (!canDownload(userPlan)) {
+      setUpgradeReason('download');
+      setShowUpgradeModal(true);
+      return;
+    }
     if (!product) return;
-    // Pass raw markdown content (product.content), NOT the pre-rendered innerHTML.
-    // renderTemplate() / mdToHtml() handles markdown→HTML conversion.
     const filename = product.title.replace(/[^a-z0-9]/gi, '_');
-    await downloadPDF(product.content, filename, selectedTemplate);
+    downloadPDF(product.content, filename, selectedTemplate);
   }
 
   function handleCopyContent() {
+    if (!canCopy(userPlan)) {
+      setUpgradeReason('copy');
+      setShowUpgradeModal(true);
+      return;
+    }
     if (!product) return;
     navigator.clipboard.writeText(product.content);
     alert('Content copied to clipboard!');
@@ -141,91 +220,15 @@ export default function Home() {
     setError('');
   }
 
-  function renderPreview(content: string) {
-    return content
-      .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-      .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-      .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.+?)\*/g, '<em>$1</em>')
-      .replace(/^- \[ \] (.+)$/gm, '<div class="checkbox"><span class="box"></span>$1</div>')
-      .replace(/^- \[x\] (.+)$/gm, '<div class="checkbox checked"><span class="box checked-box">✓</span>$1</div>')
-      .replace(/^- (.+)$/gm, '<li>$1</li>')
-      .replace(/^\d+\. (.+)$/gm, '<li class="numbered">$1</li>')
-      .replace(/\n\n/g, '<p style="margin:10px 0;"></p>')
-      .replace(/\n/g, '<br>');
+  // Show upgrade modal for logged-out users clicking generate
+  function handleUpgradeForLogin() {
+    setUpgradeReason('manual');
+    setShowUpgradeModal(true);
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-blue-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-sm">
-              <span className="text-white text-lg font-bold">M</span>
-            </div>
-            <div>
-              <h1 className="text-lg font-bold text-gray-900">MintKit</h1>
-              <p className="text-xs text-gray-500">AI Digital Product Generator</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {step !== 'input' && (
-              <button
-                onClick={step === 'preview' ? handleBack : handleReset}
-                className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
-              >
-                {step === 'preview' ? '← Back' : '← New'}
-              </button>
-            )}
-
-            {/* Auth Section */}
-            {status === 'loading' ? (
-              <div className="w-8 h-8 rounded-full bg-gray-100 animate-pulse" />
-            ) : session ? (
-              <div className="flex items-center gap-2">
-                <div className="hidden sm:block text-right">
-                  <p className="text-xs font-medium text-gray-700 max-w-[100px] truncate">
-                    {session.user?.name}
-                  </p>
-                  <p className="text-[10px] text-gray-400 truncate">
-                    {session.user?.email}
-                  </p>
-                </div>
-                <img
-                  src={session.user?.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(session.user?.name || 'U')}&background=10B981&color=fff`}
-                  alt={session.user?.name || 'User'}
-                  className="w-8 h-8 rounded-full border border-gray-200 cursor-pointer"
-                  onClick={() => router.push('/dashboard')}
-                  title="Dashboard"
-                />
-                <button
-                  onClick={() => signOut()}
-                  className="text-xs text-gray-500 hover:text-red-500 transition-colors ml-1"
-                  title="Sign out"
-                >
-                  ⎋
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => signIn('google')}
-                className="text-sm px-4 py-2 min-h-[36px] bg-gray-900 text-white font-medium rounded-lg hover:bg-gray-800 transition-colors flex items-center gap-2"
-              >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
-                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-                </svg>
-                <span className="hidden sm:inline">Sign in</span>
-              </button>
-            )}
-          </div>
-        </div>
-      </header>
+      <Header />
 
       <main className="max-w-3xl mx-auto px-6 py-10">
         {/* Step 1: Niche Input */}
@@ -240,6 +243,19 @@ export default function Home() {
                 Enter any niche, get 5 product ideas, generate a complete PDF checklist or planner, and sell on Gumroad.
               </p>
             </div>
+
+            {/* Usage notice for free users */}
+            {status === 'authenticated' && userPlan === 'free' && (
+              <div className="mb-4 flex items-center justify-center gap-2 text-sm text-gray-500">
+                <span>📅 {todayCount >= 1 ? '❌' : '✅'} 1 generation left today</span>
+                <button
+                  onClick={() => { setUpgradeReason('manual'); setShowUpgradeModal(true); }}
+                  className="text-emerald-600 hover:text-emerald-700 font-medium underline"
+                >
+                  Upgrade for more →
+                </button>
+              </div>
+            )}
 
             <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
               <label className="block text-left text-sm font-medium text-gray-700 mb-2">
@@ -256,7 +272,7 @@ export default function Home() {
                 />
                 <button
                   onClick={handleGenerateIdeas}
-                  disabled={loading || !niche.trim()}
+                  disabled={loading || !niche.trim() || (planInfo.isOverDailyLimit && status === 'authenticated')}
                   className="px-6 py-3 min-h-[44px] bg-emerald-600 text-white font-medium rounded-xl hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
                 >
                   {loading ? (
@@ -264,7 +280,7 @@ export default function Home() {
                       <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
                       Generating...
                     </span>
-                  ) : 'Generate Ideas'}
+                  ) : status === 'unauthenticated' ? 'Sign in to Generate' : 'Generate Ideas'}
                 </button>
               </div>
               {error && <p className="mt-3 text-sm text-red-500 text-left">{error}</p>}
@@ -333,11 +349,23 @@ export default function Home() {
               ))}
             </div>
 
+            {/* Generation counter */}
             <div className="mt-6 flex items-center justify-between">
               <p className="text-sm text-gray-500">
-                {generationsLeft > 0 ? `${generationsLeft} generation${generationsLeft !== 1 ? 's' : ''} left today` : 'No generations left today'}
+                {userPlan === 'premium'
+                  ? '∞ Unlimited generations'
+                  : userPlan === 'basic'
+                    ? `${30 - monthlyCount} generations left this month`
+                    : `${1 - todayCount >= 0 ? 1 - todayCount : 0}/1 generation left today`}
               </p>
-              {generationsLeft > 0 && (
+              {planInfo.isOverDailyLimit ? (
+                <button
+                  onClick={() => { setUpgradeReason('limit'); setShowUpgradeModal(true); }}
+                  className="text-sm text-emerald-600 hover:text-emerald-700 font-medium"
+                >
+                  Upgrade for more →
+                </button>
+              ) : (
                 <button
                   onClick={handleGenerateIdeas}
                   disabled={loading}
@@ -517,19 +545,59 @@ export default function Home() {
 
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row gap-3 mb-8">
-              <button
-                onClick={handleDownloadPDF}
-                className="flex-1 min-w-[160px] min-h-[44px] px-6 py-3 bg-emerald-600 text-white font-medium rounded-xl hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2"
-              >
-                📥 Download PDF
-              </button>
-              <button
-                onClick={handleCopyContent}
-                className="flex-1 min-w-[160px] min-h-[44px] px-6 py-3 bg-white border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
-              >
-                📋 Copy Content
-              </button>
+              {/* Download PDF */}
+              {canDownload(userPlan) ? (
+                <button
+                  onClick={handleDownloadPDF}
+                  className="flex-1 min-w-[160px] min-h-[44px] px-6 py-3 bg-emerald-600 text-white font-medium rounded-xl hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  📥 Download PDF
+                </button>
+              ) : (
+                <button
+                  onClick={() => { setUpgradeReason('download'); setShowUpgradeModal(true); }}
+                  className="flex-1 min-w-[160px] min-h-[44px] px-6 py-3 bg-gray-200 text-gray-500 font-medium rounded-xl cursor-not-allowed flex items-center justify-center gap-2"
+                  title="Upgrade to download"
+                >
+                  📥 Download PDF
+                  <span className="text-xs bg-gray-300 px-1.5 py-0.5 rounded">Premium</span>
+                </button>
+              )}
+
+              {/* Copy Content */}
+              {canCopy(userPlan) ? (
+                <button
+                  onClick={handleCopyContent}
+                  className="flex-1 min-w-[160px] min-h-[44px] px-6 py-3 bg-white border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                >
+                  📋 Copy Content
+                </button>
+              ) : (
+                <button
+                  onClick={() => { setUpgradeReason('copy'); setShowUpgradeModal(true); }}
+                  className="flex-1 min-w-[160px] min-h-[44px] px-6 py-3 bg-gray-200 text-gray-500 font-medium rounded-xl cursor-not-allowed flex items-center justify-center gap-2"
+                  title="Upgrade to copy"
+                >
+                  📋 Copy Content
+                  <span className="text-xs bg-gray-300 px-1.5 py-0.5 rounded">Premium</span>
+                </button>
+              )}
             </div>
+
+            {/* Upgrade nudge for free users */}
+            {!canDownload(userPlan) && !canCopy(userPlan) && (
+              <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl text-center">
+                <p className="text-sm text-amber-700 mb-2">
+                  💡 Upgrade to Basic or Premium to download PDFs and copy content
+                </p>
+                <button
+                  onClick={() => { setUpgradeReason('manual'); setShowUpgradeModal(true); }}
+                  className="text-sm text-emerald-600 hover:text-emerald-700 font-medium underline"
+                >
+                  View Plans →
+                </button>
+              </div>
+            )}
 
             {/* Template change */}
             <div className="flex gap-3 mb-8">
@@ -560,10 +628,20 @@ export default function Home() {
         )}
       </main>
 
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        currentPlan={userPlan}
+        reason={upgradeReason}
+        todayCount={todayCount}
+        monthlyCount={monthlyCount}
+      />
+
       {/* Footer */}
       <footer className="border-t border-gray-100 mt-16">
         <div className="max-w-3xl mx-auto px-6 py-6 text-center text-sm text-gray-400">
-          Built with MintKit · Start selling your digital products today
+          Built with MintKit · <a href="/pricing" className="hover:text-emerald-600">Pricing</a> · <a href="/faq" className="hover:text-emerald-600">FAQ</a> · Start selling your digital products today
         </div>
       </footer>
     </div>
