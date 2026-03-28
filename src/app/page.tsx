@@ -163,10 +163,10 @@ export default function Home() {
         {step === 'input' && (
           <div className="text-center">
             <div className="mb-10">
-              <h2 className="text-3xl font-bold text-gray-900 mb-3">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-3 leading-tight">
                 Turn Your Niche Into<br />
                 <span className="text-emerald-600">Sellable Digital Products</span>
-              </h2>
+              </h1>
               <p className="text-gray-500 text-base max-w-md mx-auto">
                 Enter any niche, get 5 product ideas, generate a complete PDF checklist or planner, and sell on Gumroad.
               </p>
@@ -176,19 +176,19 @@ export default function Home() {
               <label className="block text-left text-sm font-medium text-gray-700 mb-2">
                 What&apos;s your niche?
               </label>
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <input
                   type="text"
                   value={niche}
                   onChange={(e) => setNiche(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleGenerateIdeas()}
                   placeholder="e.g., french learning, dog training, small garden..."
-                  className="flex-1 px-4 py-3 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  className="flex-1 px-4 py-3 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent min-h-[44px]"
                 />
                 <button
                   onClick={handleGenerateIdeas}
                   disabled={loading || !niche.trim()}
-                  className="px-6 py-3 bg-emerald-600 text-white font-medium rounded-xl hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                  className="px-6 py-3 min-h-[44px] bg-emerald-600 text-white font-medium rounded-xl hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
                 >
                   {loading ? (
                     <span className="flex items-center gap-2">
@@ -234,28 +234,28 @@ export default function Home() {
             <div className="space-y-4">
               {ideas.map((idea, i) => (
                 <div key={i} className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
                         <span className={`text-xs font-medium px-2 py-1 rounded-full border ${typeColors[idea.type] || 'bg-gray-100 text-gray-600'}`}>
                           {idea.type}
                         </span>
                         <span className="text-xs text-gray-400">{idea.pageCount} pages</span>
                       </div>
-                      <h3 className="font-semibold text-gray-900 mb-1">{idea.title}</h3>
-                      <p className="text-sm text-gray-500 mb-3">👤 {idea.targetUser}</p>
+                      <h3 className="font-semibold text-gray-900 mb-1 truncate">{idea.title}</h3>
+                      <p className="text-sm text-gray-500 mb-3 truncate">👤 {idea.targetUser}</p>
                       <ul className="text-sm text-gray-600 space-y-1">
                         {idea.features.slice(0, 3).map((f, j) => (
                           <li key={j} className="flex items-start gap-2">
-                            <span className="text-emerald-500 mt-0.5">•</span>
-                            {f}
+                            <span className="text-emerald-500 mt-0.5 shrink-0">•</span>
+                            <span className="break-words">{f}</span>
                           </li>
                         ))}
                       </ul>
                     </div>
                     <button
                       onClick={() => handleSelectIdea(idea)}
-                      className="px-5 py-2.5 bg-emerald-600 text-white text-sm font-medium rounded-xl hover:bg-emerald-700 transition-colors whitespace-nowrap"
+                      className="px-5 py-3 min-h-[44px] bg-emerald-600 text-white text-sm font-medium rounded-xl hover:bg-emerald-700 transition-colors whitespace-nowrap sm:shrink-0"
                     >
                       Select →
                     </button>
@@ -362,7 +362,7 @@ export default function Home() {
               <button
                 onClick={handleConfirmTemplate}
                 disabled={loading}
-                className="flex-1 px-6 py-3.5 bg-emerald-600 text-white font-medium rounded-xl hover:bg-emerald-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                className="flex-1 min-h-[44px] px-6 py-3.5 bg-emerald-600 text-white font-medium rounded-xl hover:bg-emerald-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
               >
                 {loading ? (
                   <>
@@ -375,7 +375,7 @@ export default function Home() {
               </button>
               <button
                 onClick={() => setStep('ideas')}
-                className="px-6 py-3.5 bg-white border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors"
+                className="px-6 py-3.5 min-h-[44px] bg-white border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors"
               >
                 Back
               </button>
@@ -447,16 +447,16 @@ export default function Home() {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex flex-wrap gap-3 mb-8">
+            <div className="flex flex-col sm:flex-row gap-3 mb-8">
               <button
                 onClick={handleDownloadPDF}
-                className="flex-1 min-w-[160px] px-6 py-3 bg-emerald-600 text-white font-medium rounded-xl hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2"
+                className="flex-1 min-w-[160px] min-h-[44px] px-6 py-3 bg-emerald-600 text-white font-medium rounded-xl hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2"
               >
                 📥 Download PDF
               </button>
               <button
                 onClick={handleCopyContent}
-                className="flex-1 min-w-[160px] px-6 py-3 bg-white border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                className="flex-1 min-w-[160px] min-h-[44px] px-6 py-3 bg-white border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
               >
                 📋 Copy Content
               </button>

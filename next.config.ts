@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  turbopack: {
+    root: "/root/.openclaw/workspace/projects/mintkit",
+  },
 };
 
 export default nextConfig;
