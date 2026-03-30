@@ -51,6 +51,9 @@ export async function POST(req: NextRequest) {
     const customId = resource.custom_id as string;
     const planId = resource.plan_id as string;
 
+    // Guard: skip DB operations if D1 is not configured
+    const isD1Configured = !!(process.env.CLOUDFLARE_D1_API_TOKEN && process.env.CLOUDFLARE_ACCOUNT_ID);
+
     switch (eventType) {
       case 'BILLING.SUBSCRIPTION.ACTIVATED':
       case 'BILLING.SUBSCRIPTION.CREATED': {
@@ -66,27 +69,30 @@ export async function POST(req: NextRequest) {
           break;
         }
 
-        // Ensure user exists in DB
-        if (customId) {
-          const existingUser = await getUserById(customId);
-          if (!existingUser) {
-            // If we don't have user details, we can't create — skip
-            console.warn('[PayPal Webhook] User not found in DB:', customId);
-            break;
+        if (isD1Configured) {
+          // Ensure user exists in DB
+          if (customId) {
+            const existingUser = await getUserById(customId);
+            if (!existingUser) {
+              console.warn('[PayPal Webhook] User not found in DB:', customId);
+              break;
+            }
           }
-        }
 
-        await upsertSubscription({
-          id: crypto.randomUUID(),
-          user_id: customId || '',
-          plan: plan as 'basic' | 'premium',
-          status: 'active',
-          paypal_subscription_id: paypalSubId,
-          current_period_end: (resource.billing_info as Record<string, string>)?.next_billing_time || '',
-        });
+          await upsertSubscription({
+            id: crypto.randomUUID(),
+            user_id: customId || '',
+            plan: plan as 'basic' | 'premium',
+            status: 'active',
+            paypal_subscription_id: paypalSubId,
+            current_period_end: (resource.billing_info as Record<string, string>)?.next_billing_time || '',
+          });
 
-        if (customId) {
-          await updateUserPlan(customId, plan as Plan);
+          if (customId) {
+            await updateUserPlan(customId, plan as Plan);
+          }
+        } else {
+          console.warn('[PayPal Webhook] D1 not configured — skipping DB update for subscription:', paypalSubId);
         }
 
         console.log(`[PayPal Webhook] Subscription activated: ${paypalSubId} for plan ${plan}`);
@@ -95,20 +101,24 @@ export async function POST(req: NextRequest) {
 
       case 'BILLING.SUBSCRIPTION.CANCELLED':
       case 'BILLING.SUBSCRIPTION.EXPIRED': {
-        const sub = await getSubscriptionByPaypalId(paypalSubId);
-        if (sub && sub.user_id) {
-          await updateUserPlan(sub.user_id, 'free');
-          await updateSubscriptionStatus(paypalSubId, 'cancelled');
+        if (isD1Configured) {
+          const sub = await getSubscriptionByPaypalId(paypalSubId);
+          if (sub && sub.user_id) {
+            await updateUserPlan(sub.user_id, 'free');
+            await updateSubscriptionStatus(paypalSubId, 'cancelled');
+          }
         }
         console.log(`[PayPal Webhook] Subscription cancelled: ${paypalSubId}`);
         break;
       }
 
       case 'BILLING.SUBSCRIPTION.PAYMENT.FAILED': {
-        const sub = await getSubscriptionByPaypalId(paypalSubId);
-        if (sub && sub.user_id) {
-          await updateUserPlan(sub.user_id, 'free');
-          await updateSubscriptionStatus(paypalSubId, 'past_due');
+        if (isD1Configured) {
+          const sub = await getSubscriptionByPaypalId(paypalSubId);
+          if (sub && sub.user_id) {
+            await updateUserPlan(sub.user_id, 'free');
+            await updateSubscriptionStatus(paypalSubId, 'past_due');
+          }
         }
         console.log(`[PayPal Webhook] Payment failed: ${paypalSubId}`);
         break;

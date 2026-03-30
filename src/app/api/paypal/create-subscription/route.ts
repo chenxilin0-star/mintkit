@@ -56,6 +56,7 @@ export async function POST(req: NextRequest) {
       : process.env.PAYPAL_PREMIUM_PLAN_ID;
 
     if (!planId) {
+      console.error('[create-subscription] Missing plan ID:', { basic: !!process.env.PAYPAL_BASIC_PLAN_ID, premium: !!process.env.PAYPAL_PREMIUM_PLAN_ID, plan });
       return NextResponse.json({ error: 'PayPal plan not configured. Please add PAYPAL_BASIC_PLAN_ID and PAYPAL_PREMIUM_PLAN_ID to your environment variables.' }, { status: 503 });
     }
 
