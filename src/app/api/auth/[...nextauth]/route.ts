@@ -27,7 +27,7 @@ export const authOptions = {
     }),
   ],
   pages: {
-    signIn: "/", // Use the homepage as the sign-in page
+    signIn: "/signin",
   },
   callbacks: {
     async session({ session, token }: { session: any; token: any }) {

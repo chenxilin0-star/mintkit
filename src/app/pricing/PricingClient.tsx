@@ -34,7 +34,7 @@ export default function PricingClient() {
       return;
     }
     if (status !== 'authenticated') {
-      window.location.href = '/api/auth/signin?callbackUrl=/pricing';
+      window.location.href = '/signin?callbackUrl=/pricing';
       return;
     }
 
