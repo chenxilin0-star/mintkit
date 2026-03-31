@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAccessToken } from '../create-subscription/route';
-import { upsertSubscription, updateUserPlan, getUserById, getOrCreateUser } from '@/lib/db';
+import { upsertSubscription, updateUserPlan, getUserById, dbExec } from '@/lib/db';
 import { Plan } from '@/lib/subscription';
 import crypto from 'crypto';
 
@@ -70,26 +70,34 @@ export async function POST(req: NextRequest) {
         }
 
         if (isD1Configured) {
-          // Ensure user exists in DB (create placeholder if not)
-          if (customId) {
-            const existingUser = await getUserById(customId);
-            if (!existingUser) {
-              await getOrCreateUser(customId, `webhook-${customId}@placeholder.com`, null, null);
-              console.log(`[PayPal Webhook] Created placeholder user for: ${customId}`);
+          try {
+            // Ensure user exists in DB (INSERT OR IGNORE to handle edge cases)
+            if (customId) {
+              const existingUser = await getUserById(customId);
+              if (!existingUser) {
+                await dbExec(
+                  'INSERT OR IGNORE INTO users (id, email, name, avatar, plan) VALUES (?, ?, ?, ?, ?)',
+                  [customId, `webhook-${customId}@placeholder.com`, null, null, 'free']
+                );
+                console.log(`[PayPal Webhook] Ensured user exists: ${customId}`);
+              }
             }
-          }
 
-          await upsertSubscription({
-            id: crypto.randomUUID(),
-            user_id: customId || '',
-            plan: plan as 'basic' | 'premium',
-            status: 'active',
-            paypal_subscription_id: paypalSubId,
-            current_period_end: (resource.billing_info as Record<string, string>)?.next_billing_time || '',
-          });
+            await upsertSubscription({
+              id: crypto.randomUUID(),
+              user_id: customId || '',
+              plan: plan as 'basic' | 'premium',
+              status: 'active',
+              paypal_subscription_id: paypalSubId,
+              current_period_end: (resource.billing_info as Record<string, string>)?.next_billing_time || '',
+            });
 
-          if (customId) {
-            await updateUserPlan(customId, plan as Plan);
+            if (customId) {
+              await updateUserPlan(customId, plan as Plan);
+            }
+          } catch (dbErr: any) {
+            console.error('[PayPal Webhook] DB error during activation:', dbErr.message);
+            // Don't crash — the activate-subscription endpoint handles this on user redirect
           }
         } else {
           console.warn('[PayPal Webhook] D1 not configured — skipping DB update for subscription:', paypalSubId);
@@ -102,10 +110,14 @@ export async function POST(req: NextRequest) {
       case 'BILLING.SUBSCRIPTION.CANCELLED':
       case 'BILLING.SUBSCRIPTION.EXPIRED': {
         if (isD1Configured) {
-          const sub = await getSubscriptionByPaypalId(paypalSubId);
-          if (sub && sub.user_id) {
-            await updateUserPlan(sub.user_id, 'free');
-            await updateSubscriptionStatus(paypalSubId, 'cancelled');
+          try {
+            const sub = await getSubscriptionByPaypalId(paypalSubId);
+            if (sub && sub.user_id) {
+              await updateUserPlan(sub.user_id, 'free');
+              await updateSubscriptionStatus(paypalSubId, 'cancelled');
+            }
+          } catch (dbErr: any) {
+            console.error('[PayPal Webhook] DB error during cancellation:', dbErr.message);
           }
         }
         console.log(`[PayPal Webhook] Subscription cancelled: ${paypalSubId}`);
@@ -114,10 +126,14 @@ export async function POST(req: NextRequest) {
 
       case 'BILLING.SUBSCRIPTION.PAYMENT.FAILED': {
         if (isD1Configured) {
-          const sub = await getSubscriptionByPaypalId(paypalSubId);
-          if (sub && sub.user_id) {
-            await updateUserPlan(sub.user_id, 'free');
-            await updateSubscriptionStatus(paypalSubId, 'past_due');
+          try {
+            const sub = await getSubscriptionByPaypalId(paypalSubId);
+            if (sub && sub.user_id) {
+              await updateUserPlan(sub.user_id, 'free');
+              await updateSubscriptionStatus(paypalSubId, 'past_due');
+            }
+          } catch (dbErr: any) {
+            console.error('[PayPal Webhook] DB error during payment failure:', dbErr.message);
           }
         }
         console.log(`[PayPal Webhook] Payment failed: ${paypalSubId}`);
