@@ -26,9 +26,29 @@ function SubscriptionContent() {
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
-    if (searchParams.get('success') === '1') {
-      setSuccess('🎉 Subscription activated! Welcome to MintKit Premium.');
-      // Refresh plan data
+    const subId = searchParams.get('subscription_id');
+    if (searchParams.get('success') === '1' && subId) {
+      // Activate subscription via server (verifies with PayPal & updates DB)
+      fetch('/api/paypal/activate-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscriptionId: subId }),
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data.success) {
+            setSuccess(`🎉 Subscription activated! Welcome to MintKit ${data.plan === 'premium' ? 'Premium' : 'Basic'}.`);
+          } else {
+            setError(data.error || 'Failed to activate subscription. Please contact support.');
+          }
+          fetchPlanData();
+        })
+        .catch(() => {
+          setError('Failed to activate subscription. Please contact support.');
+          fetchPlanData();
+        });
+    } else if (searchParams.get('success') === '1') {
+      setSuccess('🎉 Subscription activated!');
       fetchPlanData();
     }
     if (searchParams.get('cancelled') === '1') {
@@ -193,7 +213,7 @@ function SubscriptionContent() {
         </div>
 
         {/* Upgrade section */}
-        {currentPlan !== 'premium' && (
+        {currentPlan === 'free' && (
           <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-6 shadow-sm">
             <h2 className="text-lg font-bold text-gray-900 mb-1">
               {currentPlan === 'free' ? 'Upgrade Your Plan' : 'Upgrade to Premium'}
@@ -205,7 +225,7 @@ function SubscriptionContent() {
             </p>
 
             <div className="space-y-3">
-              {(currentPlan === 'free' ? PLANS.filter(p => p.id !== 'free') : PLANS.filter(p => p.id === 'premium')).map((plan) => (
+              {PLANS.filter(p => p.id !== 'free').map((plan) => (
                 <div key={plan.id} className={`flex items-center justify-between p-4 rounded-xl border-2 ${plan.highlighted ? 'border-amber-300 bg-amber-50' : 'border-gray-100 bg-gray-50'}`}>
                   <div>
                     <div className="flex items-center gap-2">
