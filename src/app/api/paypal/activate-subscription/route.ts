@@ -69,11 +69,11 @@ export async function POST(req: NextRequest) {
     const name = session.user.name || null;
     const avatar = session.user.image || null;
 
-    // Ensure user exists
-    try {
+    // Ensure user exists in DB (required for FK constraint on subscriptions)
+    const existingUser = await getUserById(userId);
+    if (!existingUser) {
       await getOrCreateUser(userId, email, name, avatar);
-    } catch (e: any) {
-      console.warn('[activate-subscription] getOrCreateUser failed:', e.message);
+      console.log(`[activate-subscription] Created user ${userId} in DB`);
     }
 
     // Upsert subscription record

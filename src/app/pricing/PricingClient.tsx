@@ -125,14 +125,14 @@ export default function PricingClient() {
               >
                 {isHighlighted && (
                   <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                    <span className="bg-amber-400 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg">
+                    <span className="bg-amber-400 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg whitespace-nowrap">
                       ⭐ Most Popular
                     </span>
                   </div>
                 )}
                 {isCurrent && (
                   <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                    <span className="bg-emerald-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg">
+                    <span className="bg-emerald-500 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg whitespace-nowrap">
                       ✓ Current Plan
                     </span>
                   </div>

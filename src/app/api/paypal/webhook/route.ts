@@ -70,12 +70,12 @@ export async function POST(req: NextRequest) {
         }
 
         if (isD1Configured) {
-          // Ensure user exists in DB
+          // Ensure user exists in DB (create placeholder if not)
           if (customId) {
             const existingUser = await getUserById(customId);
             if (!existingUser) {
-              console.warn('[PayPal Webhook] User not found in DB:', customId);
-              break;
+              await getOrCreateUser(customId, `webhook-${customId}@placeholder.com`, null, null);
+              console.log(`[PayPal Webhook] Created placeholder user for: ${customId}`);
             }
           }
 
