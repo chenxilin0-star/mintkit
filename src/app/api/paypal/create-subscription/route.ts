@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { getUserById, getActiveSubscription } from '@/lib/db';
 
 export const runtime = 'nodejs';
 
@@ -49,6 +50,25 @@ export async function POST(req: NextRequest) {
     const { plan } = await req.json() as { plan: 'basic' | 'premium' };
     if (!['basic', 'premium'].includes(plan)) {
       return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });
+    }
+
+    // Check if user already has an active subscription
+    try {
+      const user = await getUserById(session.user.id);
+      if (user && (user.plan === 'basic' || user.plan === 'premium')) {
+        const activeSub = await getActiveSubscription(session.user.id);
+        if (activeSub && activeSub.status === 'active') {
+          return NextResponse.json(
+            { error: `You already have an active ${user.plan} subscription. Please cancel it first before subscribing to a new plan.` },
+            { status: 409 }
+          );
+        }
+      }
+    } catch (dbErr: any) {
+      // If D1 not configured, skip the check (dev mode)
+      if (!dbErr.message?.includes('Missing CLOUDFLARE') && !dbErr.message?.includes('fetch failed')) {
+        console.warn('[create-subscription] DB check failed, proceeding:', dbErr.message);
+      }
     }
 
     const planId = plan === 'basic'

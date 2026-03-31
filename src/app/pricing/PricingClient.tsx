@@ -11,6 +11,7 @@ export default function PricingClient() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [currentPlan, setCurrentPlan] = useState<Plan>('free');
+  const [dbFallback, setDbFallback] = useState(false);
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -22,6 +23,9 @@ export default function PricingClient() {
         .then((data) => {
           if (data && !data.error) {
             setCurrentPlan(data.plan || 'free');
+            if (data.fallback) {
+              setDbFallback(true);
+            }
           }
         })
         .catch(() => {});
@@ -40,6 +44,12 @@ export default function PricingClient() {
 
     setLoading(plan);
     setError('');
+
+    if (dbFallback) {
+      setError('Database not configured. Cannot process upgrades right now. Please contact admin.');
+      setLoading(null);
+      return;
+    }
 
     try {
       const res = await fetch('/api/paypal/create-subscription', {
@@ -69,6 +79,11 @@ export default function PricingClient() {
       <main className="max-w-3xl mx-auto px-6 py-12">
         {/* Page header */}
         <div className="text-center mb-12">
+          {dbFallback && (
+            <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700 text-center">
+              ⚠️ Database not configured — plan changes cannot be saved. Contact admin.
+            </div>
+          )}
           <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">
             Simple, Transparent Pricing
           </h1>
@@ -162,13 +177,15 @@ export default function PricingClient() {
                       handleUpgrade(plan.id);
                     }
                   }}
-                  disabled={loading !== null}
+                  disabled={loading !== null || (currentPlan !== 'free' && !isCurrent)}
                   className={`w-full min-h-[48px] py-3 rounded-xl font-semibold text-sm transition-all ${
                     isCurrent
                       ? 'bg-emerald-100 text-emerald-700 cursor-default hover:bg-emerald-100'
-                      : isHighlighted
-                        ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-md hover:shadow-lg active:scale-95'
-                        : 'bg-emerald-600 hover:bg-emerald-700 text-white hover:shadow-md active:scale-95'
+                      : currentPlan !== 'free'
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : isHighlighted
+                          ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-md hover:shadow-lg active:scale-95'
+                          : 'bg-emerald-600 hover:bg-emerald-700 text-white hover:shadow-md active:scale-95'
                   } ${loading !== null ? 'opacity-60 cursor-not-allowed' : ''}`}
                 >
                   {loading === plan.id ? (
@@ -181,6 +198,8 @@ export default function PricingClient() {
                     </span>
                   ) : isCurrent ? (
                     'Manage Subscription'
+                  ) : currentPlan !== 'free' ? (
+                    'Already Subscribed'
                   ) : (
                     plan.cta
                   )}
