@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAccessToken } from '../create-subscription/route';
-import { upsertSubscription, updateUserPlan, getUserById, dbExec } from '@/lib/db';
+import { upsertSubscription, updateUserPlan, getOrCreateUser, dbExec } from '@/lib/db';
 import { Plan } from '@/lib/subscription';
 import crypto from 'crypto';
 
@@ -71,30 +71,31 @@ export async function POST(req: NextRequest) {
 
         if (isD1Configured) {
           try {
-            // Ensure user exists in DB (INSERT OR IGNORE to handle edge cases)
+            // Ensure user exists in DB before writing subscription (FK constraint)
             if (customId) {
-              const existingUser = await getUserById(customId);
-              if (!existingUser) {
-                await dbExec(
-                  'INSERT OR IGNORE INTO users (id, email, name, avatar, plan) VALUES (?, ?, ?, ?, ?)',
-                  [customId, `webhook-${customId}@placeholder.com`, null, null, 'free']
-                );
-                console.log(`[PayPal Webhook] Ensured user exists: ${customId}`);
-              }
+              await getOrCreateUser(
+                customId,
+                (resource.subscriber as Record<string, string>)?.email_address || `webhook-${customId}@placeholder.com`,
+                null,
+                null
+              );
+              console.log(`[PayPal Webhook] User ensured: ${customId}`);
+            } else {
+              console.warn('[PayPal Webhook] No customId — cannot create subscription without user');
+              break;
             }
 
             await upsertSubscription({
               id: crypto.randomUUID(),
-              user_id: customId || '',
+              user_id: customId,
               plan: plan as 'basic' | 'premium',
               status: 'active',
               paypal_subscription_id: paypalSubId,
               current_period_end: (resource.billing_info as Record<string, string>)?.next_billing_time || '',
             });
 
-            if (customId) {
-              await updateUserPlan(customId, plan as Plan);
-            }
+            await updateUserPlan(customId, plan as Plan);
+            console.log(`[PayPal Webhook] Subscription activated: ${paypalSubId} for user ${customId}, plan ${plan}`);
           } catch (dbErr: any) {
             console.error('[PayPal Webhook] DB error during activation:', dbErr.message);
             // Don't crash — the activate-subscription endpoint handles this on user redirect
