@@ -231,6 +231,13 @@ export async function upsertSubscription(data: {
   `, [data.id, data.user_id, data.plan, data.status, data.paypal_subscription_id, data.current_period_end]);
 }
 
+export async function updateSubscriptionStatus(paypalSubscriptionId: string, status: string): Promise<void> {
+  await dbExec(
+    "UPDATE subscriptions SET status = ? WHERE paypal_subscription_id = ?",
+    [status, paypalSubscriptionId]
+  );
+}
+
 // ─── Generation helpers ─────────────────────────────────────────────────────
 
 export interface DbGeneration {

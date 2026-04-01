@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAccessToken } from '../create-subscription/route';
-import { upsertSubscription, updateUserPlan, getOrCreateUser, dbExec } from '@/lib/db';
+import { upsertSubscription, updateUserPlan, updateSubscriptionStatus, getOrCreateUser, dbExec, dbQuery } from '@/lib/db';
 import { Plan } from '@/lib/subscription';
 import crypto from 'crypto';
 
@@ -99,6 +99,40 @@ export async function POST(req: NextRequest) {
               paypal_subscription_id: paypalSubId,
               current_period_end: (resource.billing_info as Record<string, string>)?.next_billing_time || '',
             });
+
+            // Auto-cancel old subscriptions if this is an upgrade
+            try {
+              const allActiveSubs = await dbQuery<{ paypal_subscription_id: string; plan: string }>(
+                "SELECT paypal_subscription_id, plan FROM subscriptions WHERE user_id = ? AND status = 'active'",
+                [customId]
+              );
+              for (const sub of allActiveSubs) {
+                if (sub.paypal_subscription_id !== paypalSubId) {
+                  console.log(`[PayPal Webhook] Auto-cancelling old subscription ${sub.paypal_subscription_id} (${sub.plan}) for user ${customId}`);
+                  try {
+                    const token = await getAccessToken();
+                    const cancelRes = await fetch(`${process.env.PAYPAL_MODE === 'live' ? 'https://api-m.paypal.com' : 'https://api-m.sandbox.paypal.com'}/v1/billing/subscriptions/${sub.paypal_subscription_id}/cancel`, {
+                      method: 'POST',
+                      headers: {
+                        Authorization: `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({ reason: `Upgrading to ${plan} plan` }),
+                    });
+                    if (cancelRes.ok) {
+                      await updateSubscriptionStatus(sub.paypal_subscription_id, 'cancelled');
+                    } else {
+                      const cancelErr = await cancelRes.text();
+                      console.error(`[PayPal Webhook] Failed to cancel old sub ${sub.paypal_subscription_id}:`, cancelErr);
+                    }
+                  } catch (cancelErr) {
+                    console.error(`[PayPal Webhook] Error cancelling old sub ${sub.paypal_subscription_id}:`, cancelErr);
+                  }
+                }
+              }
+            } catch (cancelErr: any) {
+              console.error('[PayPal Webhook] Error checking for old subscriptions to cancel:', cancelErr.message);
+            }
 
             await updateUserPlan(customId, plan as Plan);
             console.log(`[PayPal Webhook] Subscription activated: ${paypalSubId} for user ${customId}, plan ${plan}`);
@@ -199,17 +233,9 @@ async function verifyPayPalWebhook(params: VerifyParams): Promise<boolean> {
 
 async function getSubscriptionByPaypalId(paypalId: string) {
   const { dbQuery } = await import('@/lib/db');
-  const subs = await dbQuery<{ user_id: string }>(
-    'SELECT user_id FROM subscriptions WHERE paypal_subscription_id = ?',
+  const subs = await dbQuery<{ user_id: string; paypal_subscription_id: string }>(
+    'SELECT user_id, paypal_subscription_id FROM subscriptions WHERE paypal_subscription_id = ?',
     [paypalId]
   );
   return subs[0];
-}
-
-async function updateSubscriptionStatus(paypalId: string, status: string) {
-  const { dbExec } = await import('@/lib/db');
-  await dbExec(
-    "UPDATE subscriptions SET status = ? WHERE paypal_subscription_id = ?",
-    [status, paypalId]
-  );
 }

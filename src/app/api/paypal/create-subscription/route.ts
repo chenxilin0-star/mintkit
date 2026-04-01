@@ -53,6 +53,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Check if user already has an active subscription for the same or higher plan
+    let oldPaypalSubId: string | null = null;
     try {
       const user = await getUserById(session.user.id);
       if (user && (user.plan === 'basic' || user.plan === 'premium')) {
@@ -66,8 +67,9 @@ export async function POST(req: NextRequest) {
               { status: 409 }
             );
           }
-          // Allow upgrade (basic → premium) — the new subscription will replace the old one
-          console.log(`[create-subscription] Allowing upgrade from ${user.plan} to ${plan} for user ${session.user.id}`);
+          // Allow upgrade (basic → premium) — will auto-cancel old subscription after new one is activated
+          oldPaypalSubId = activeSub.paypal_subscription_id;
+          console.log(`[create-subscription] Upgrade from ${user.plan} to ${plan}, will cancel old sub ${oldPaypalSubId} after activation`);
         }
       }
     } catch (dbErr: any) {

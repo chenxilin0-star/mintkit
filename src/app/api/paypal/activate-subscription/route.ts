@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { getAccessToken } from '../create-subscription/route';
-import { getUserById, getOrCreateUser, upsertSubscription, updateUserPlan } from '@/lib/db';
+import { getUserById, getOrCreateUser, getActiveSubscription, upsertSubscription, updateUserPlan, updateSubscriptionStatus } from '@/lib/db';
 import crypto from 'crypto';
 
 export const runtime = 'nodejs';
@@ -11,6 +11,35 @@ function getPayPalBase(): string {
   return process.env.PAYPAL_MODE === 'live'
     ? 'https://api-m.paypal.com'
     : 'https://api-m.sandbox.paypal.com';
+}
+
+/**
+ * Cancel a PayPal subscription via API.
+ * Used when upgrading from basic to premium to auto-cancel the old subscription.
+ */
+async function cancelPayPalSubscription(paypalSubId: string, accessToken: string, reason: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${getPayPalBase()}/v1/billing/subscriptions/${paypalSubId}/cancel`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ reason }),
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      console.error(`[cancelPayPalSubscription] Failed to cancel ${paypalSubId}:`, err);
+      return false;
+    }
+
+    console.log(`[cancelPayPalSubscription] Successfully cancelled ${paypalSubId}: ${reason}`);
+    return true;
+  } catch (err) {
+    console.error(`[cancelPayPalSubscription] Error cancelling ${paypalSubId}:`, err);
+    return false;
+  }
 }
 
 // POST /api/paypal/activate-subscription
@@ -93,6 +122,34 @@ export async function POST(req: NextRequest) {
       paypal_subscription_id: subscriptionId,
       current_period_end: nextBillingTime,
     });
+
+    // Auto-cancel old subscription if this is an upgrade (basic → premium)
+    try {
+      const oldSubs = await getActiveSubscription(userId);
+      // Find old subscriptions that are not the current one
+      // (getActiveSubscription returns the first active one, which might be the new one now)
+      const { dbQuery } = await import('@/lib/db');
+      const allActiveSubs = await dbQuery<{ paypal_subscription_id: string; plan: string }>(
+        "SELECT paypal_subscription_id, plan FROM subscriptions WHERE user_id = ? AND status = 'active'",
+        [userId]
+      );
+      for (const sub of allActiveSubs) {
+        if (sub.paypal_subscription_id !== subscriptionId) {
+          console.log(`[activate-subscription] Auto-cancelling old subscription ${sub.paypal_subscription_id} (${sub.plan}) for upgrade`);
+          const cancelled = await cancelPayPalSubscription(
+            sub.paypal_subscription_id,
+            accessToken,
+            `Upgrading to ${plan} plan`
+          );
+          if (cancelled) {
+            await updateSubscriptionStatus(sub.paypal_subscription_id, 'cancelled');
+          }
+        }
+      }
+    } catch (cancelErr: any) {
+      // Don't fail the activation if old subscription cancellation fails
+      console.error('[activate-subscription] Failed to auto-cancel old subscription:', cancelErr.message);
+    }
 
     // Update user plan
     await updateUserPlan(userId, plan as 'basic' | 'premium');
