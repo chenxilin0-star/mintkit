@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { PLANS, Plan, buildUserPlanInfo, getPlanColor, getPlanLabel } from '@/lib/subscription';
+import { PLANS, Plan, canUpgradeTo, buildUserPlanInfo, getPlanColor, getPlanLabel } from '@/lib/subscription';
 
 interface UpgradeModalProps {
   isOpen: boolean;
@@ -203,13 +203,15 @@ export default function UpgradeModal({
 
                   <button
                     onClick={() => handleUpgrade(plan.id)}
-                    disabled={isCurrent || loading !== null}
+                    disabled={isCurrent || loading !== null || (currentPlan !== 'free' && !canUpgradeTo(currentPlan, plan.id))}
                     className={`w-full min-h-[44px] py-3 rounded-xl font-semibold text-sm transition-colors ${
                       isCurrent
                         ? 'bg-gray-100 text-gray-400 cursor-default'
-                        : isHighlighted
-                          ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-sm'
-                          : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                        : currentPlan !== 'free' && !canUpgradeTo(currentPlan, plan.id)
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          : isHighlighted
+                            ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-sm'
+                            : 'bg-emerald-600 hover:bg-emerald-700 text-white'
                     } ${loading !== null ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     {loading === plan.id ? (
@@ -222,6 +224,8 @@ export default function UpgradeModal({
                       </span>
                     ) : isCurrent ? (
                       'Current Plan'
+                    ) : currentPlan !== 'free' && !canUpgradeTo(currentPlan, plan.id) ? (
+                      'Included in Your Plan'
                     ) : (
                       plan.cta
                     )}

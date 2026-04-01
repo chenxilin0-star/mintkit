@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import UpgradeModal from '@/components/UpgradeModal';
-import { PLANS, Plan, getPlanColor, getPlanLabel } from '@/lib/subscription';
+import { PLANS, Plan, canUpgradeTo, getPlanColor, getPlanLabel } from '@/lib/subscription';
 
 export default function PricingClient() {
   const { data: session, status } = useSession();
@@ -173,15 +173,15 @@ export default function PricingClient() {
                       router.push('/subscription');
                     } else if (plan.id === 'free') {
                       router.push('/');
-                    } else {
+                    } else if (canUpgradeTo(currentPlan, plan.id)) {
                       handleUpgrade(plan.id);
                     }
                   }}
-                  disabled={loading !== null || (currentPlan !== 'free' && !isCurrent)}
+                  disabled={loading !== null || (currentPlan !== 'free' && !isCurrent && !canUpgradeTo(currentPlan, plan.id))}
                   className={`w-full min-h-[48px] py-3 rounded-xl font-semibold text-sm transition-all ${
                     isCurrent
                       ? 'bg-emerald-100 text-emerald-700 cursor-default hover:bg-emerald-100'
-                      : currentPlan !== 'free'
+                      : currentPlan !== 'free' && !canUpgradeTo(currentPlan, plan.id)
                         ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                         : isHighlighted
                           ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-md hover:shadow-lg active:scale-95'
@@ -198,8 +198,8 @@ export default function PricingClient() {
                     </span>
                   ) : isCurrent ? (
                     'Manage Subscription'
-                  ) : currentPlan !== 'free' ? (
-                    'Already Subscribed'
+                  ) : currentPlan !== 'free' && !canUpgradeTo(currentPlan, plan.id) ? (
+                    currentPlan === 'premium' ? 'Current Plan' : 'Included in Your Plan'
                   ) : (
                     plan.cta
                   )}

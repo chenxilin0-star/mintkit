@@ -18,6 +18,15 @@ export function canPriorityGeneration(plan: Plan): boolean {
   return plan === 'premium';
 }
 
+/**
+ * Whether a user on `currentPlan` can upgrade to `targetPlan`.
+ * Only allow upgrades (higher tier), not downgrades.
+ */
+export function canUpgradeTo(currentPlan: Plan, targetPlan: Plan): boolean {
+  const tiers: Record<Plan, number> = { free: 0, basic: 1, premium: 2 };
+  return tiers[targetPlan] > tiers[currentPlan];
+}
+
 export function getMonthlyLimit(plan: Plan): number {
   if (plan === 'premium') return Infinity;
   if (plan === 'basic') return 30;

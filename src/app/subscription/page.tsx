@@ -213,7 +213,7 @@ function SubscriptionContent() {
         </div>
 
         {/* Upgrade section */}
-        {currentPlan === 'free' && (
+        {currentPlan !== 'premium' && (
           <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-6 shadow-sm">
             <h2 className="text-lg font-bold text-gray-900 mb-1">
               {currentPlan === 'free' ? 'Upgrade Your Plan' : 'Upgrade to Premium'}
@@ -225,7 +225,12 @@ function SubscriptionContent() {
             </p>
 
             <div className="space-y-3">
-              {PLANS.filter(p => p.id !== 'free').map((plan) => (
+              {PLANS.filter(p => {
+                // Only show plans the user can upgrade to
+                if (p.id === 'free') return false;
+                if (p.id === currentPlan) return false;
+                return true;
+              }).map((plan) => (
                 <div key={plan.id} className={`flex items-center justify-between p-4 rounded-xl border-2 ${plan.highlighted ? 'border-amber-300 bg-amber-50' : 'border-gray-100 bg-gray-50'}`}>
                   <div>
                     <div className="flex items-center gap-2">
@@ -247,7 +252,7 @@ function SubscriptionContent() {
                         : 'bg-emerald-600 hover:bg-emerald-700 text-white'
                     } ${loading !== null ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
-                    {loading === plan.id ? 'Redirecting...' : plan.cta}
+                    {loading === plan.id ? 'Redirecting...' : currentPlan === 'free' ? plan.cta : 'Upgrade Now'}
                   </button>
                 </div>
               ))}
