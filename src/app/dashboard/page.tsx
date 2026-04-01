@@ -144,14 +144,21 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
           <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm text-center">
             <div className="text-3xl mb-1">📅</div>
-            <div className="text-2xl font-bold text-gray-900">{stats.todayCount}</div>
+            <div className="text-2xl font-bold text-gray-900">
+              {userPlan === 'premium' ? '∞' : stats.todayCount}
+              {userPlan === 'free' && <span className="text-sm font-normal text-gray-400"> /1</span>}
+            </div>
             <div className="text-sm text-gray-500">
-              {userPlan === 'free' ? '/1 today' : userPlan === 'basic' ? '/30 this month' : '∞ today'}
+              {userPlan === 'free' ? 'today (1/day)' : 'today'}
             </div>
           </div>
           <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm text-center">
             <div className="text-3xl mb-1">📆</div>
-            <div className="text-2xl font-bold text-gray-900">{stats.monthCount}</div>
+            <div className="text-2xl font-bold text-gray-900">
+              {stats.monthCount}
+              {userPlan === 'basic' && <span className="text-sm font-normal text-gray-400"> /30</span>}
+              {userPlan === 'premium' && <span className="text-sm font-normal text-gray-400"> /∞</span>}
+            </div>
             <div className="text-sm text-gray-500">This month</div>
           </div>
           <div className="bg-white rounded-xl border border-gray-100 p-5 shadow-sm text-center">

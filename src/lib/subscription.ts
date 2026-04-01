@@ -34,7 +34,9 @@ export function getMonthlyLimit(plan: Plan): number {
 }
 
 export function getDailyLimit(plan: Plan): number {
-  return 1; // all plans: 1 per day
+  if (plan === 'premium') return Infinity;
+  if (plan === 'basic') return Infinity; // Basic has monthly limit only
+  return 1; // free: 1 per day
 }
 
 export function isOverDailyLimit(plan: Plan, todayCount: number): boolean {

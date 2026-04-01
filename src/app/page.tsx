@@ -115,7 +115,7 @@ export default function Home() {
       if (!res.ok) throw new Error(data.error);
       setIdeas(data.ideas);
       setStep('ideas');
-      setTodayCount((c) => c + 1);
+      // Don't increment todayCount here — generation is counted when product is confirmed
     } catch (e: any) {
       setError(e.message || 'Failed to generate ideas');
     } finally {
@@ -247,12 +247,23 @@ export default function Home() {
             {/* Usage notice for free users */}
             {status === 'authenticated' && userPlan === 'free' && (
               <div className="mb-4 flex items-center justify-center gap-2 text-sm text-gray-500">
-                <span>📅 {todayCount >= 1 ? '❌' : '✅'} 1 generation left today</span>
+                <span>📅 {todayCount >= 1 ? '❌' : '✅'} {Math.max(0, 1 - todayCount)} generation left today</span>
                 <button
                   onClick={() => { setUpgradeReason('manual'); setShowUpgradeModal(true); }}
                   className="text-emerald-600 hover:text-emerald-700 font-medium underline"
                 >
                   Upgrade for more →
+                </button>
+              </div>
+            )}
+            {status === 'authenticated' && userPlan === 'basic' && (
+              <div className="mb-4 flex items-center justify-center gap-2 text-sm text-gray-500">
+                <span>📅 {30 - monthlyCount} generations left this month</span>
+                <button
+                  onClick={() => { setUpgradeReason('manual'); setShowUpgradeModal(true); }}
+                  className="text-emerald-600 hover:text-emerald-700 font-medium underline"
+                >
+                  Upgrade to Premium →
                 </button>
               </div>
             )}
@@ -355,10 +366,10 @@ export default function Home() {
                 {userPlan === 'premium'
                   ? '∞ Unlimited generations'
                   : userPlan === 'basic'
-                    ? `${30 - monthlyCount} generations left this month`
-                    : `${1 - todayCount >= 0 ? 1 - todayCount : 0}/1 generation left today`}
+                    ? `${Math.max(0, 30 - monthlyCount)} generations left this month`
+                    : `${Math.max(0, 1 - todayCount)}/1 generation left today`}
               </p>
-              {planInfo.isOverDailyLimit ? (
+              {(userPlan === 'free' && planInfo.isOverDailyLimit) || (userPlan === 'basic' && planInfo.isOverMonthlyLimit) ? (
                 <button
                   onClick={() => { setUpgradeReason('limit'); setShowUpgradeModal(true); }}
                   className="text-sm text-emerald-600 hover:text-emerald-700 font-medium"
@@ -560,7 +571,7 @@ export default function Home() {
                   title="Upgrade to download"
                 >
                   📥 Download PDF
-                  <span className="text-xs bg-gray-300 px-1.5 py-0.5 rounded">Premium</span>
+                  <span className="text-xs bg-gray-300 px-1.5 py-0.5 rounded">Basic+</span>
                 </button>
               )}
 
@@ -579,7 +590,7 @@ export default function Home() {
                   title="Upgrade to copy"
                 >
                   📋 Copy Content
-                  <span className="text-xs bg-gray-300 px-1.5 py-0.5 rounded">Premium</span>
+                  <span className="text-xs bg-gray-300 px-1.5 py-0.5 rounded">Basic+</span>
                 </button>
               )}
             </div>
