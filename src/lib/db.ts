@@ -140,7 +140,8 @@ export async function getOrCreateUser(id: string, email: string, name: string | 
       [safeEmail, name, avatar, id]
     ).catch(() => {}); // Non-critical, ignore errors
     const updated = await dbQuery<DbUser>('SELECT * FROM users WHERE id = ?', [id]);
-    return updated[0];
+    // Return updated if available, otherwise return original existing record
+    return updated[0] || existing[0];
   }
 
   // Insert new user — use ON CONFLICT(id) DO UPDATE to handle race conditions.
@@ -218,13 +219,14 @@ export async function upsertSubscription(data: {
   paypal_subscription_id: string;
   current_period_end: string;
 }): Promise<void> {
+  // Upsert by paypal_subscription_id (UNIQUE constraint) instead of id.
+  // Previously used ON CONFLICT(id) but id was always a new UUID, creating duplicates.
   await dbExec(`
     INSERT INTO subscriptions (id, user_id, plan, status, paypal_subscription_id, current_period_end)
     VALUES (?, ?, ?, ?, ?, ?)
-    ON CONFLICT(id) DO UPDATE SET
+    ON CONFLICT(paypal_subscription_id) DO UPDATE SET
       plan = excluded.plan,
       status = excluded.status,
-      paypal_subscription_id = excluded.paypal_subscription_id,
       current_period_end = excluded.current_period_end
   `, [data.id, data.user_id, data.plan, data.status, data.paypal_subscription_id, data.current_period_end]);
 }

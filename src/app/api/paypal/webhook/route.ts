@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
   const transmissionId = req.headers.get('paypal-transmission-id') || '';
   const transmissionTime = req.headers.get('paypal-transmission-time') || '';
   const webhookId = process.env.PAYPAL_WEBHOOK_ID;
-  const webhookSecret = process.env.PAYPAL_WEBHOOK_ID; // Same as webhookId
+  // Note: PayPal webhook verification uses webhookId, not a separate secret
 
   let event: Record<string, unknown>;
   try {

@@ -52,16 +52,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });
     }
 
-    // Check if user already has an active subscription
+    // Check if user already has an active subscription for the same or higher plan
     try {
       const user = await getUserById(session.user.id);
       if (user && (user.plan === 'basic' || user.plan === 'premium')) {
         const activeSub = await getActiveSubscription(session.user.id);
         if (activeSub && activeSub.status === 'active') {
-          return NextResponse.json(
-            { error: `You already have an active ${user.plan} subscription. Please cancel it first before subscribing to a new plan.` },
-            { status: 409 }
-          );
+          // Block if trying to subscribe to same or lower plan
+          const tiers: Record<string, number> = { free: 0, basic: 1, premium: 2 };
+          if (tiers[plan] <= tiers[user.plan]) {
+            return NextResponse.json(
+              { error: `You already have an active ${user.plan} subscription. Please cancel it first if you want to change plans.` },
+              { status: 409 }
+            );
+          }
+          // Allow upgrade (basic → premium) — the new subscription will replace the old one
+          console.log(`[create-subscription] Allowing upgrade from ${user.plan} to ${plan} for user ${session.user.id}`);
         }
       }
     } catch (dbErr: any) {
