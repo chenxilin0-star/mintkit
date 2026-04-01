@@ -73,13 +73,19 @@ export async function POST(req: NextRequest) {
           try {
             // Ensure user exists in DB before writing subscription (FK constraint)
             if (customId) {
-              await getOrCreateUser(
+              const subscriber = resource.subscriber as Record<string, unknown> | undefined;
+              const subscriberEmail = (subscriber?.email_address as string) || '';
+              const dbUser = await getOrCreateUser(
                 customId,
-                (resource.subscriber as Record<string, string>)?.email_address || `webhook-${customId}@placeholder.com`,
+                subscriberEmail,
                 null,
                 null
               );
-              console.log(`[PayPal Webhook] User ensured: ${customId}`);
+              if (!dbUser) {
+                console.error(`[PayPal Webhook] getOrCreateUser returned null for ${customId}, skipping subscription upsert`);
+                break;
+              }
+              console.log(`[PayPal Webhook] User ensured: ${customId}, email=${dbUser.email}`);
             } else {
               console.warn('[PayPal Webhook] No customId — cannot create subscription without user');
               break;

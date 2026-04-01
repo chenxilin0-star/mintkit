@@ -117,28 +117,54 @@ export interface DbUser {
 }
 
 export async function getOrCreateUser(id: string, email: string, name: string | null, avatar: string | null): Promise<DbUser> {
+  // Guard: email must not be empty — users.email has UNIQUE NOT NULL constraint.
+  // An empty string can cause INSERT OR IGNORE to silently skip due to UNIQUE conflict
+  // with another user who also has an empty/null email.
+  const safeEmail = email && email.trim() ? email.trim() : `unknown-${id}@placeholder`;
+
   // Try to fetch existing user first
   const existing = await dbQuery<DbUser>('SELECT * FROM users WHERE id = ?', [id]);
   if (existing.length > 0) {
     // Update email/name/avatar in case they changed
     await dbExec(
       "UPDATE users SET email = ?, name = ?, avatar = ?, updated_at = datetime('now') WHERE id = ?",
-      [email, name, avatar, id]
+      [safeEmail, name, avatar, id]
     ).catch(() => {}); // Non-critical, ignore errors
     const updated = await dbQuery<DbUser>('SELECT * FROM users WHERE id = ?', [id]);
     return updated[0];
   }
 
-  // Insert new user — use INSERT OR IGNORE to handle race conditions
-  await dbExec(
-    'INSERT OR IGNORE INTO users (id, email, name, avatar, plan) VALUES (?, ?, ?, ?, ?)',
-    [id, email, name, avatar, 'free']
+  // Insert new user — use ON CONFLICT(id) DO UPDATE to handle race conditions.
+  // Previously used INSERT OR IGNORE which silently failed when email UNIQUE constraint
+  // was violated (e.g. another user with same empty email), leaving no row for this id.
+  // ON CONFLICT(id) ensures the row exists regardless of email collisions.
+  const insertResult = await dbExec(
+    `INSERT INTO users (id, email, name, avatar, plan) VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET email = excluded.email, updated_at = datetime('now')`,
+    [id, safeEmail, name, avatar, 'free']
   );
+
+  // Verify the write actually happened
+  if (insertResult.meta && insertResult.meta.rows_written === 0) {
+    console.warn(`[getOrCreateUser] rows_written=0 for user ${id}, attempting direct insert fallback`);
+    // Fallback: try plain insert in case ON CONFLICT syntax issue
+    try {
+      await dbExec(
+        'INSERT INTO users (id, email, name, avatar, plan) VALUES (?, ?, ?, ?, ?)',
+        [id, safeEmail, name, avatar, 'free']
+      );
+    } catch (insertErr: any) {
+      // If it's a duplicate key, that's fine — another process created it
+      if (!insertErr.message?.includes('UNIQUE constraint')) {
+        throw insertErr;
+      }
+    }
+  }
 
   // Re-fetch to confirm (handles both insert-success and race-condition cases)
   const user = await dbQuery<DbUser>('SELECT * FROM users WHERE id = ?', [id]);
   if (user.length === 0) {
-    throw new Error(`Failed to create/retrieve user ${id} in D1`);
+    throw new Error(`Failed to create/retrieve user ${id} in D1 after insert (email=${safeEmail}, rows_written=${insertResult.meta?.rows_written})`);
   }
   return user[0];
 }

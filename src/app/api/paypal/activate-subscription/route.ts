@@ -73,14 +73,14 @@ export async function POST(req: NextRequest) {
     let dbUser;
     try {
       dbUser = await getOrCreateUser(userId, email, name, avatar);
-      console.log(`[activate-subscription] User ${userId} ensured in DB, plan=${dbUser.plan}`);
+      if (!dbUser) {
+        console.error(`[activate-subscription] getOrCreateUser returned null/undefined for ${userId}`);
+        return NextResponse.json({ error: 'Failed to create user record. Please try again.' }, { status: 500 });
+      }
+      console.log(`[activate-subscription] User ${userId} ensured in DB, plan=${dbUser.plan}, email=${dbUser.email}`);
     } catch (dbErr: any) {
-      console.error('[activate-subscription] Failed to ensure user in DB:', dbErr.message);
+      console.error(`[activate-subscription] Failed to ensure user ${userId} in DB:`, dbErr.message);
       return NextResponse.json({ error: 'Failed to create user record. Please try again.' }, { status: 500 });
-    }
-
-    if (!dbUser) {
-      return NextResponse.json({ error: 'User record not found after creation.' }, { status: 500 });
     }
 
     // Upsert subscription record
