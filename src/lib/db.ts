@@ -55,10 +55,13 @@ export async function dbExec(sql: string, params?: (string | number | null)[]): 
   if (!res.ok || !data.success) {
     throw new Error(`D1 query failed: ${JSON.stringify(data)}`);
   }
+  // D1 REST API returns: { result: [ { results: [...], success: true, meta: {...} } ], success: true }
+  // data.result is an array of QueryResult objects; data.result[0] has the actual meta.
+  const queryResult = Array.isArray(data.result) ? data.result[0] : data.result;
   return {
-    results: data.result || [],
-    success: data.success,
-    meta: data.meta,
+    results: queryResult?.results || [],
+    success: queryResult?.success ?? data.success,
+    meta: queryResult?.meta,
   };
 }
 
@@ -83,7 +86,10 @@ export async function dbQuery<T = Record<string, unknown>>(
   if (!res.ok || !data.success) {
     throw new Error(`D1 query failed: ${JSON.stringify(data)}`);
   }
-  return (data.result || []) as T[];
+  // D1 REST API returns: { result: [ { results: [...rows...], success: true, meta: {...} } ], success: true }
+  // data.result[0].results contains the actual row data.
+  const queryResult = Array.isArray(data.result) ? data.result[0] : data.result;
+  return (queryResult?.results || []) as T[];
 }
 
 /**
@@ -97,10 +103,13 @@ export async function dbBatch(sqls: { sql: string; params?: (string | number | n
     body: JSON.stringify({ sql: sqls.map((s) => s.sql).join('; '), params: sqls.flatMap((s) => s.params || []) }),
   });
   const data = await res.json();
+  // For batch queries, data.result is an array of QueryResult objects (one per statement)
+  // Return the first query's result for compatibility
+  const firstResult = Array.isArray(data.result) ? data.result[0] : data.result;
   return {
-    results: data.result || [],
+    results: firstResult?.results || [],
     success: data.success,
-    meta: data.meta,
+    meta: firstResult?.meta,
   };
 }
 
