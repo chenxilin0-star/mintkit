@@ -1,23 +1,6 @@
 import NextAuth from "next-auth"
 import GoogleProvider from "next-auth/providers/google"
-
-/**
- * Google OAuth Configuration
- * 
- * Before deploying, you need to:
- * 1. Create a project in Google Cloud Console (https://console.cloud.google.com)
- * 2. Enable the Google+ API
- * 3. Go to "APIs & Services" > "Credentials" and create an OAuth 2.0 Client ID
- *    - Application type: Web application
- *    - Add Authorized redirect URI: https://mintkit.cxlvip.com/api/auth/callback/google
- * 4. Copy the Client ID and Client Secret
- * 5. Generate NEXTAUTH_SECRET: openssl rand -base64 32
- * 6. Set the following environment variables in Vercel:
- *    - GOOGLE_CLIENT_ID
- *    - GOOGLE_CLIENT_SECRET
- *    - NEXTAUTH_URL=https://mintkit.cxlvip.com
- *    - NEXTAUTH_SECRET=<generated value>
- */
+import { getOrCreateUser } from "@/lib/db"
 
 export const authOptions = {
   providers: [
@@ -30,6 +13,24 @@ export const authOptions = {
     signIn: "/signin",
   },
   callbacks: {
+    async signIn({ user }: { user: any }) {
+      // Ensure user exists in D1 immediately on login
+      // This prevents FK errors when later writing subscriptions
+      if (user?.id) {
+        try {
+          await getOrCreateUser(
+            user.id,
+            user.email || '',
+            user.name || null,
+            user.image || null
+          );
+        } catch (err) {
+          console.error('[NextAuth signIn] Failed to ensure user in D1:', err);
+          // Don't block login — the user can still use the app
+        }
+      }
+      return true;
+    },
     async session({ session, token }: { session: any; token: any }) {
       if (session?.user && token?.sub) {
         session.user.id = token.sub;
