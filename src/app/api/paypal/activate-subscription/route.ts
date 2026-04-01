@@ -70,10 +70,17 @@ export async function POST(req: NextRequest) {
     const avatar = session.user.image || null;
 
     // Ensure user exists in DB (required for FK constraint on subscriptions)
-    const existingUser = await getUserById(userId);
-    if (!existingUser) {
-      await getOrCreateUser(userId, email, name, avatar);
-      console.log(`[activate-subscription] Created user ${userId} in DB`);
+    let dbUser;
+    try {
+      dbUser = await getOrCreateUser(userId, email, name, avatar);
+      console.log(`[activate-subscription] User ${userId} ensured in DB, plan=${dbUser.plan}`);
+    } catch (dbErr: any) {
+      console.error('[activate-subscription] Failed to ensure user in DB:', dbErr.message);
+      return NextResponse.json({ error: 'Failed to create user record. Please try again.' }, { status: 500 });
+    }
+
+    if (!dbUser) {
+      return NextResponse.json({ error: 'User record not found after creation.' }, { status: 500 });
     }
 
     // Upsert subscription record

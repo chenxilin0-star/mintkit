@@ -117,15 +117,29 @@ export interface DbUser {
 }
 
 export async function getOrCreateUser(id: string, email: string, name: string | null, avatar: string | null): Promise<DbUser> {
+  // Try to fetch existing user first
   const existing = await dbQuery<DbUser>('SELECT * FROM users WHERE id = ?', [id]);
-  if (existing.length > 0) return existing[0];
+  if (existing.length > 0) {
+    // Update email/name/avatar in case they changed
+    await dbExec(
+      "UPDATE users SET email = ?, name = ?, avatar = ?, updated_at = datetime('now') WHERE id = ?",
+      [email, name, avatar, id]
+    ).catch(() => {}); // Non-critical, ignore errors
+    const updated = await dbQuery<DbUser>('SELECT * FROM users WHERE id = ?', [id]);
+    return updated[0];
+  }
 
+  // Insert new user — use INSERT OR IGNORE to handle race conditions
   await dbExec(
-    'INSERT INTO users (id, email, name, avatar, plan) VALUES (?, ?, ?, ?, ?)',
+    'INSERT OR IGNORE INTO users (id, email, name, avatar, plan) VALUES (?, ?, ?, ?, ?)',
     [id, email, name, avatar, 'free']
   );
-  // Re-fetch
+
+  // Re-fetch to confirm (handles both insert-success and race-condition cases)
   const user = await dbQuery<DbUser>('SELECT * FROM users WHERE id = ?', [id]);
+  if (user.length === 0) {
+    throw new Error(`Failed to create/retrieve user ${id} in D1`);
+  }
   return user[0];
 }
 
