@@ -102,6 +102,9 @@ export default function UpgradeModal({
           paddle.Checkout.open({
             items: [{ priceId: PRICE_IDS[plan] }],
             customData: { user_id: session.user.id },
+            customer: {
+              email: session?.user?.email || undefined,
+            },
           });
         }
       }
