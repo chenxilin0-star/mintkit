@@ -104,6 +104,7 @@ export default function UpgradeModal({
             customData: { user_id: session.user.id },
             customer: {
               email: session?.user?.email || undefined,
+              name: session?.user?.name || undefined,
             },
           });
         }
