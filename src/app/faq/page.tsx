@@ -39,7 +39,7 @@ export default function FAQPage() {
               />
               <FAQItem
                 q="Can I get a refund?"
-                a="We offer a 7-day money-back guarantee for all paid plans. If you're not satisfied within the first 7 days, contact us at support@mintkit.com and we'll process a full refund through PayPal."
+                a="We offer a 7-day money-back guarantee for all paid plans. If you're not satisfied within the first 7 days, contact us at chenxilin0@gmail.com and we'll process a full refund through PayPal."
               />
               <FAQItem
                 q="Will I be charged automatically?"
@@ -56,7 +56,7 @@ export default function FAQPage() {
             <div className="space-y-3">
               <FAQItem
                 q="How do I cancel my subscription?"
-                a="You can cancel anytime from your PayPal account (Settings → Payments → Manage pre-approved payments), or contact us at support@mintkit.com. Your access continues until the end of the current billing period — we don't prorate cancellations."
+                a="You can cancel anytime from your PayPal account (Settings → Payments → Manage pre-approved payments), or contact us at chenxilin0@gmail.com. Your access continues until the end of the current billing period — we don't prorate cancellations."
               />
               <FAQItem
                 q="Can I switch between Basic and Premium?"
@@ -106,7 +106,7 @@ export default function FAQPage() {
               />
               <FAQItem
                 q="Can I delete my account?"
-                a="Yes. Contact us at support@mintkit.com and we'll permanently delete your account and all associated data within 30 days, in accordance with GDPR and CCPA regulations."
+                a="Yes. Contact us at chenxilin0@gmail.com and we'll permanently delete your account and all associated data within 30 days, in accordance with GDPR and CCPA regulations."
               />
             </div>
           </section>
@@ -138,17 +138,28 @@ export default function FAQPage() {
           <h3 className="text-xl font-bold text-gray-900 mb-2">Still have questions?</h3>
           <p className="text-gray-500 mb-5">We typically respond within 24 hours.</p>
           <a
-            href="mailto:support@mintkit.com"
+            href="mailto:chenxilin0@gmail.com"
             className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 transition-colors"
           >
             📧 Email Us
           </a>
         </div>
       </main>
-
+{/* Footer */}
       <footer className="border-t border-gray-100 mt-16">
-        <div className="max-w-3xl mx-auto px-6 py-6 text-center text-sm text-gray-400">
-          Built with MintKit · © {new Date().getFullYear()} MintKit
+        <div className="max-w-3xl mx-auto px-6 py-6 text-center space-y-3">
+          <div className="text-sm text-gray-400">
+            Built with MintKit · © {new Date().getFullYear()} MintKit
+          </div>
+          <div className="flex gap-4 text-sm text-gray-400 justify-center">
+            <a href="/terms-and-conditions" className="hover:text-gray-600 transition-colors">Terms & Conditions</a>
+            <span>·</span>
+            <a href="/privacy" className="hover:text-gray-600 transition-colors">Privacy Policy</a>
+            <span>·</span>
+            <a href="/refund" className="hover:text-gray-600 transition-colors">Refund Policy</a>
+            <span>·</span>
+            <a href="mailto:chenxilin0@gmail.com" className="hover:text-gray-600 transition-colors">Contact Us</a>
+          </div>
         </div>
       </footer>
     </div>

@@ -253,12 +253,12 @@ function SubscriptionContent() {
               After that, you&apos;ll revert to the Free plan.
             </p>
             <p className="text-xs text-gray-400">
-              To cancel, please contact support at support@mintkit.com.
+              To cancel, please contact support at chenxilin0@gmail.com.
               Cancellation takes effect at the end of the billing period.
             </p>
             <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl">
               <p className="text-sm text-amber-700">
-                💡 Need help? Contact us at support@mintkit.com — we&apos;re happy to help!
+                💡 Need help? Contact us at chenxilin0@gmail.com — we&apos;re happy to help!
               </p>
             </div>
           </div>
@@ -266,9 +266,21 @@ function SubscriptionContent() {
 
         {/* Billing info */}
         <div className="mt-6 text-center text-xs text-gray-400">
-          💳 Billing powered by Paddle · Questions? Email support@mintkit.com
+          💳 Billing powered by Paddle · Questions? Email chenxilin0@gmail.com
         </div>
       </main>
+
+      <footer className="border-t border-gray-100 mt-16">
+        <div className="max-w-2xl mx-auto px-6 py-6 text-center space-y-3">
+          <div className="flex gap-4 text-sm text-gray-400 justify-center">
+            <a href="/terms-and-conditions" className="hover:text-gray-600 transition-colors">Terms & Conditions</a>
+            <span>·</span>
+            <a href="/privacy" className="hover:text-gray-600 transition-colors">Privacy Policy</a>
+            <span>·</span>
+            <a href="/refund" className="hover:text-gray-600 transition-colors">Refund Policy</a>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

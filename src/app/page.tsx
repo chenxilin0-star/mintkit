@@ -651,8 +651,17 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="border-t border-gray-100 mt-16">
-        <div className="max-w-3xl mx-auto px-6 py-6 text-center text-sm text-gray-400">
-          Built with MintKit · <a href="/pricing" className="hover:text-emerald-600">Pricing</a> · <a href="/faq" className="hover:text-emerald-600">FAQ</a> · Start selling your digital products today
+        <div className="max-w-3xl mx-auto px-6 py-6 text-center space-y-3">
+          <div className="text-sm text-gray-400">
+            Built with MintKit · <a href="/pricing" className="hover:text-emerald-600">Pricing</a> · <a href="/faq" className="hover:text-emerald-600">FAQ</a> · Start selling your digital products today
+          </div>
+          <div className="flex gap-4 text-sm text-gray-400 justify-center">
+            <a href="/terms-and-conditions" className="hover:text-gray-600 transition-colors">Terms & Conditions</a>
+            <span>·</span>
+            <a href="/privacy" className="hover:text-gray-600 transition-colors">Privacy Policy</a>
+            <span>·</span>
+            <a href="/refund" className="hover:text-gray-600 transition-colors">Refund Policy</a>
+          </div>
         </div>
       </footer>
     </div>

@@ -96,8 +96,8 @@ export default function TermsAndConditionsPage() {
             <h2 className="text-lg font-semibold text-gray-900 mb-3">10. Contact Us</h2>
             <p className="text-gray-600 leading-relaxed">
               If you have any questions about these Terms & Conditions, please contact us at{' '}
-              <a href="mailto:support@mintkit.cxlvip.com" className="text-emerald-600 hover:underline">
-                support@mintkit.cxlvip.com
+              <a href="mailto:chenxilin0@gmail.com" className="text-emerald-600 hover:underline">
+                chenxilin0@gmail.com
               </a>
             </p>
           </section>

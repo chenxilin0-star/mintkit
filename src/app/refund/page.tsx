@@ -34,8 +34,8 @@ export default function RefundPage() {
             <h2 className="text-lg font-semibold text-gray-900 mb-3">How to Request a Refund</h2>
             <p className="text-gray-600 leading-relaxed">
               To request a refund, please contact our support team at{' '}
-              <a href="mailto:support@mintkit.cxlvip.com" className="text-emerald-600 hover:underline">
-                support@mintkit.cxlvip.com
+              <a href="mailto:chenxilin0@gmail.com" className="text-emerald-600 hover:underline">
+                chenxilin0@gmail.com
               </a>{' '}
               with your account email and the reason for your refund request. We'll respond within 1-2 business days.
             </p>
@@ -73,8 +73,8 @@ export default function RefundPage() {
             <h2 className="text-lg font-semibold text-gray-900 mb-3">Contact Us</h2>
             <p className="text-gray-600 leading-relaxed">
               If you have any questions about our refund policy or need assistance, please reach out to us at{' '}
-              <a href="mailto:support@mintkit.cxlvip.com" className="text-emerald-600 hover:underline">
-                support@mintkit.cxlvip.com
+              <a href="mailto:chenxilin0@gmail.com" className="text-emerald-600 hover:underline">
+                chenxilin0@gmail.com
               </a>
               . We're here to help!
             </p>
