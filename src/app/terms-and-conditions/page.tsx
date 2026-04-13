@@ -43,8 +43,8 @@ export default function TermsAndConditionsPage() {
               <p>MintKit offers the following subscription plans:</p>
               <ul className="list-disc list-inside space-y-1 ml-4">
                 <li><strong>Free Plan:</strong> 1 generation per day, basic features</li>
-                <li><strong>Basic Plan:</strong> $9.99/month, 30 generations per month, PDF downloads, content copy</li>
-                <li><strong>Premium Plan:</strong> $29.99/month, unlimited generations, priority processing, PDF downloads, content copy</li>
+                <li><strong>Basic Plan:</strong> $9.9/month, 30 generations per month, PDF downloads, content copy</li>
+                <li><strong>Premium Plan:</strong> $19.9/month, unlimited generations, priority processing, PDF downloads, content copy</li>
               </ul>
               <p className="mt-3">All prices are listed in USD and are subject to change with prior notice.</p>
             </div>
