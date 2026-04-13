@@ -6,6 +6,12 @@ import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import UpgradeModal from '@/components/UpgradeModal';
 import { PLANS, Plan, canUpgradeTo, getPlanColor, getPlanLabel } from '@/lib/subscription';
+import { initPaddle } from '@/lib/paddle-client';
+
+const PRICE_IDS: Record<string, string> = {
+  basic: 'pri_01kp2fdn1v4q8pnfejmn18h1ts',
+  premium: 'pri_01kp2fdnbywbvw3vdc2xv52tkc',
+};
 
 export default function PricingClient() {
   const { data: session, status } = useSession();
@@ -62,8 +68,15 @@ export default function PricingClient() {
         setError(data.error || 'Failed to start subscription');
         return;
       }
-      if (data.checkoutUrl) {
-        window.location.href = data.checkoutUrl;
+      // Initialize Paddle.js and open checkout
+      if (data.clientToken && session?.user?.id) {
+        const paddle = await initPaddle(data.clientToken);
+        if (paddle) {
+          paddle.Checkout.open({
+            items: [{ priceId: PRICE_IDS[plan] }],
+            customData: { user_id: session.user.id },
+          });
+        }
       }
     } catch (e: any) {
       setError(e.message || 'Something went wrong');

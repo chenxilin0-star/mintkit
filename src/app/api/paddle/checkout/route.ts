@@ -5,16 +5,8 @@ import { getUserById, getActiveSubscription } from '@/lib/db';
 
 export const runtime = 'nodejs';
 
-const PADDLE_API_BASE = 'https://api.paddle.com';
-
-// Paddle Price IDs
-const PADDLE_PRICES: Record<string, string> = {
-  basic: 'pri_01kp2fdn1v4q8pnfejmn18h1ts',
-  premium: 'pri_01kp2fdnbywbvw3vdc2xv52tkc',
-};
-
 // POST /api/paddle/checkout
-// Creates a Paddle checkout link and returns the URL
+// Returns client token for Paddle.js frontend SDK
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
@@ -51,48 +43,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const priceId = PADDLE_PRICES[plan];
-    if (!priceId) {
-      return NextResponse.json({ error: 'Paddle price not configured' }, { status: 503 });
-    }
-
-    const apiKey = process.env.PADDLE_API_KEY;
-    if (!apiKey) {
+    const clientToken = process.env.PADDLE_CLIENT_TOKEN;
+    if (!clientToken) {
       return NextResponse.json({ error: 'Paddle is not configured yet. Please contact support or try again later.' }, { status: 503 });
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://mintkit.vercel.app';
-
-    // Create Paddle payment link
-    const response = await fetch(`${PADDLE_API_BASE}/payments/payment-links`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        items: [{ price_id: priceId, quantity: 1 }],
-        custom_data: {
-          user_id: session.user.id,
-        },
-        return_url: `${baseUrl}/subscription?success=1`,
-      }),
-    });
-
-    if (!response.ok) {
-      const err = await response.text();
-      console.error('[Paddle create checkout error]', err);
-      return NextResponse.json({ error: 'Failed to create Paddle checkout' }, { status: 500 });
-    }
-
-    const data = await response.json();
-    const checkoutUrl = data.data?.[0]?.url;
-
-    if (!checkoutUrl) {
-      return NextResponse.json({ error: 'No checkout URL in Paddle response' }, { status: 500 });
-    }
-
-    return NextResponse.json({ checkoutUrl });
+    // Return the client token - frontend will use Paddle.js SDK
+    return NextResponse.json({ clientToken });
   } catch (err: any) {
     console.error('[POST /api/paddle/checkout]', err);
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });

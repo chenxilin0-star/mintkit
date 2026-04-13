@@ -4,6 +4,12 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { PLANS, Plan, canUpgradeTo, buildUserPlanInfo, getPlanColor, getPlanLabel } from '@/lib/subscription';
+import { initPaddle } from '@/lib/paddle-client';
+
+const PRICE_IDS: Record<string, string> = {
+  basic: 'pri_01kp2fdn1v4q8pnfejmn18h1ts',
+  premium: 'pri_01kp2fdnbywbvw3vdc2xv52tkc',
+};
 
 interface UpgradeModalProps {
   isOpen: boolean;
@@ -89,9 +95,15 @@ export default function UpgradeModal({
         return;
       }
 
-      // Redirect to Paddle checkout
-      if (data.checkoutUrl) {
-        window.location.href = data.checkoutUrl;
+      // Initialize Paddle.js and open checkout
+      if (data.clientToken) {
+        const paddle = await initPaddle(data.clientToken);
+        if (paddle) {
+          paddle.Checkout.open({
+            items: [{ priceId: PRICE_IDS[plan] }],
+            customData: { user_id: session.user.id },
+          });
+        }
       }
     } catch (e: any) {
       setError(e.message || 'Something went wrong');
