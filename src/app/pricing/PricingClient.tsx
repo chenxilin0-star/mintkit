@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
+import Link from 'next/link';
 import UpgradeModal from '@/components/UpgradeModal';
 import { PLANS, Plan, canUpgradeTo, getPlanColor, getPlanLabel } from '@/lib/subscription';
 import { initPaddle } from '@/lib/paddle-client';
@@ -259,8 +260,17 @@ export default function PricingClient() {
 
       {/* Footer */}
       <footer className="border-t border-gray-100 mt-16">
-        <div className="max-w-3xl mx-auto px-6 py-6 text-center text-sm text-gray-400">
-          Built with MintKit · 💳 Powered by Paddle · Cancel anytime
+        <div className="max-w-3xl mx-auto px-6 py-6 text-center space-y-3">
+          <div className="text-sm text-gray-400">
+            Built with MintKit · 💳 Powered by Paddle · Cancel anytime
+          </div>
+          <div className="flex gap-4 text-sm text-gray-400 justify-center">
+            <Link href="/terms-and-conditions" className="hover:text-gray-600 transition-colors">Terms & Conditions</Link>
+            <span>·</span>
+            <Link href="/privacy" className="hover:text-gray-600 transition-colors">Privacy Policy</Link>
+            <span>·</span>
+            <Link href="/refund" className="hover:text-gray-600 transition-colors">Refund Policy</Link>
+          </div>
         </div>
       </footer>
     </div>
