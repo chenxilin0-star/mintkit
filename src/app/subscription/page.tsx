@@ -26,33 +26,15 @@ function SubscriptionContent() {
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
-    const subId = searchParams.get('subscription_id');
-    if (searchParams.get('success') === '1' && subId) {
-      // Activate subscription via server (verifies with PayPal & updates DB)
-      fetch('/api/paypal/activate-subscription', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subscriptionId: subId }),
-      })
-        .then(r => r.json())
-        .then(data => {
-          if (data.success) {
-            setSuccess(`🎉 Subscription activated! Welcome to MintKit ${data.plan === 'premium' ? 'Premium' : 'Basic'}.`);
-          } else {
-            setError(data.error || 'Failed to activate subscription. Please contact support.');
-          }
-          fetchPlanData();
-        })
-        .catch(() => {
-          setError('Failed to activate subscription. Please contact support.');
-          fetchPlanData();
-        });
-    } else if (searchParams.get('success') === '1') {
-      setSuccess('🎉 Subscription activated!');
+    const success = searchParams.get('success');
+    if (success === '1') {
+      // Paddle checkout completed - webhook will handle activation
+      // Just show success message and refresh plan data
+      setSuccess('🎉 Subscription activated! Welcome to MintKit.');
       fetchPlanData();
     }
     if (searchParams.get('cancelled') === '1') {
-      setError('Subscription was cancelled. No charges were made.');
+      setError('Checkout was cancelled. No charges were made.');
     }
   }, [searchParams]);
 
@@ -88,7 +70,7 @@ function SubscriptionContent() {
     setError('');
     setSuccess('');
     try {
-      const res = await fetch('/api/paypal/create-subscription', {
+      const res = await fetch('/api/paddle/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ plan }),
@@ -98,8 +80,8 @@ function SubscriptionContent() {
         setError(data.error || 'Failed to start subscription');
         return;
       }
-      if (data.approvalUrl) {
-        window.location.href = data.approvalUrl;
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
       }
     } catch (e: any) {
       setError(e.message || 'Something went wrong');
@@ -271,8 +253,8 @@ function SubscriptionContent() {
               After that, you&apos;ll revert to the Free plan.
             </p>
             <p className="text-xs text-gray-400">
-              To cancel, please visit your PayPal account and cancel the recurring payment,
-              or contact support. Cancellation takes effect at the end of the billing period.
+              To cancel, please contact support at support@mintkit.com.
+              Cancellation takes effect at the end of the billing period.
             </p>
             <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl">
               <p className="text-sm text-amber-700">
@@ -282,9 +264,9 @@ function SubscriptionContent() {
           </div>
         )}
 
-        {/* PayPal info */}
+        {/* Billing info */}
         <div className="mt-6 text-center text-xs text-gray-400">
-          💳 Billing powered by PayPal · Questions? Email support@mintkit.com
+          💳 Billing powered by Paddle · Questions? Email support@mintkit.com
         </div>
       </main>
     </div>

@@ -73,7 +73,7 @@ export default function UpgradeModal({
     setError('');
 
     try {
-      const res = await fetch('/api/paypal/create-subscription', {
+      const res = await fetch('/api/paddle/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ plan }),
@@ -82,16 +82,16 @@ export default function UpgradeModal({
 
       if (!res.ok) {
         if (data.error?.includes('not configured')) {
-          setError('PayPal is not configured yet. Please contact support or try again later.');
+          setError('Paddle is not configured yet. Please contact support or try again later.');
         } else {
           setError(data.error || 'Failed to create subscription');
         }
         return;
       }
 
-      // Redirect to PayPal approval page
-      if (data.approvalUrl) {
-        window.location.href = data.approvalUrl;
+      // Redirect to Paddle checkout
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
       }
     } catch (e: any) {
       setError(e.message || 'Something went wrong');
@@ -242,7 +242,7 @@ export default function UpgradeModal({
           )}
 
           <p className="text-center text-xs text-gray-400 mt-5">
-            💳 Powered by PayPal · Cancel anytime · Secure payment
+            💳 Powered by Paddle · Cancel anytime · Secure payment
           </p>
         </div>
       </div>

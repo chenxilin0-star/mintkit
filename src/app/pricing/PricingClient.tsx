@@ -52,7 +52,7 @@ export default function PricingClient() {
     }
 
     try {
-      const res = await fetch('/api/paypal/create-subscription', {
+      const res = await fetch('/api/paddle/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ plan }),
@@ -62,8 +62,8 @@ export default function PricingClient() {
         setError(data.error || 'Failed to start subscription');
         return;
       }
-      if (data.approvalUrl) {
-        window.location.href = data.approvalUrl;
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
       }
     } catch (e: any) {
       setError(e.message || 'Something went wrong');
@@ -194,7 +194,7 @@ export default function PricingClient() {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
                       </svg>
-                      Redirecting to PayPal...
+                      Redirecting to Paddle...
                     </span>
                   ) : isCurrent ? (
                     'Manage Subscription'
@@ -247,7 +247,7 @@ export default function PricingClient() {
       {/* Footer */}
       <footer className="border-t border-gray-100 mt-16">
         <div className="max-w-3xl mx-auto px-6 py-6 text-center text-sm text-gray-400">
-          Built with MintKit · 💳 Powered by PayPal · Cancel anytime
+          Built with MintKit · 💳 Powered by Paddle · Cancel anytime
         </div>
       </footer>
     </div>

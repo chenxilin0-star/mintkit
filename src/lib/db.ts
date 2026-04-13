@@ -198,7 +198,7 @@ export interface DbSubscription {
   user_id: string;
   plan: 'basic' | 'premium';
   status: 'active' | 'cancelled' | 'past_due';
-  paypal_subscription_id: string | null;
+  paddle_subscription_id: string | null;
   current_period_end: string | null;
   created_at: string;
 }
@@ -216,25 +216,24 @@ export async function upsertSubscription(data: {
   user_id: string;
   plan: 'basic' | 'premium';
   status: 'active' | 'cancelled' | 'past_due';
-  paypal_subscription_id: string;
+  paddle_subscription_id: string;
   current_period_end: string;
 }): Promise<void> {
-  // Upsert by paypal_subscription_id (UNIQUE constraint) instead of id.
-  // Previously used ON CONFLICT(id) but id was always a new UUID, creating duplicates.
+  // Upsert by paddle_subscription_id (UNIQUE constraint) instead of id.
   await dbExec(`
-    INSERT INTO subscriptions (id, user_id, plan, status, paypal_subscription_id, current_period_end)
+    INSERT INTO subscriptions (id, user_id, plan, status, paddle_subscription_id, current_period_end)
     VALUES (?, ?, ?, ?, ?, ?)
-    ON CONFLICT(paypal_subscription_id) DO UPDATE SET
+    ON CONFLICT(paddle_subscription_id) DO UPDATE SET
       plan = excluded.plan,
       status = excluded.status,
       current_period_end = excluded.current_period_end
-  `, [data.id, data.user_id, data.plan, data.status, data.paypal_subscription_id, data.current_period_end]);
+  `, [data.id, data.user_id, data.plan, data.status, data.paddle_subscription_id, data.current_period_end]);
 }
 
-export async function updateSubscriptionStatus(paypalSubscriptionId: string, status: string): Promise<void> {
+export async function updateSubscriptionStatus(paddleSubscriptionId: string, status: string): Promise<void> {
   await dbExec(
-    "UPDATE subscriptions SET status = ? WHERE paypal_subscription_id = ?",
-    [status, paypalSubscriptionId]
+    "UPDATE subscriptions SET status = ? WHERE paddle_subscription_id = ?",
+    [status, paddleSubscriptionId]
   );
 }
 
